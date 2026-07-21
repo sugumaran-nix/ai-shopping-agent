@@ -64,54 +64,47 @@ export default function Hero() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-24 pb-16">
+    <section className="relative min-h-screen flex flex-col items-center overflow-hidden pt-28 md:pt-32 pb-20">
 
-      {/* Marquee strip — floats at top */}
-      <div className="absolute top-20 left-0 right-0 overflow-hidden pointer-events-none" style={{ height: 180 }}>
+      {/* Marquee strip — sits in flow at the top of the hero */}
+      <div className="relative w-full overflow-hidden mb-14 md:mb-16" style={{ height: 150 }} aria-hidden="true">
         <div ref={trackRef} className="flex gap-4 absolute top-0 left-0" style={{ willChange: "transform" }}>
           {ALL_IMAGES.map((img, i) => (
             <div
               key={i}
-              className="shrink-0 rounded-2xl overflow-hidden"
-              style={{
-                width: 200, height: 160,
-                border: "1px solid var(--glass-border)",
-                background: "var(--glass-bg)",
-              }}
+              className="shrink-0 rounded-2xl overflow-hidden glass"
+              style={{ width: 190, height: 150 }}
             >
               <img
                 src={img.src}
                 alt={img.alt}
-                className="w-full h-full object-cover opacity-60"
+                className="w-full h-full object-cover opacity-50"
                 loading="lazy"
               />
             </div>
           ))}
         </div>
         {/* Fade edges */}
-        <div className="absolute inset-y-0 left-0 w-24 pointer-events-none"
+        <div className="absolute inset-y-0 left-0 w-32 pointer-events-none z-10"
           style={{ background: "linear-gradient(to right, var(--color-black), transparent)" }} />
-        <div className="absolute inset-y-0 right-0 w-24 pointer-events-none"
+        <div className="absolute inset-y-0 right-0 w-32 pointer-events-none z-10"
           style={{ background: "linear-gradient(to left, var(--color-black), transparent)" }} />
       </div>
 
       {/* Centre content */}
-      <div className="relative z-10 flex flex-col items-center text-center px-4 mt-28">
+      <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-4xl mx-auto">
 
         {/* Badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium mb-6"
-          style={{
-            background: "rgba(124,58,237,0.12)",
-            border: "1px solid rgba(124,58,237,0.3)",
-            color: "var(--text-primary)",
-          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium mb-8 glass"
+          style={{ color: "var(--text-secondary)" }}
         >
           <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-violet)" }} />
-          Powered by Gemini AI · Searches Amazon, Flipkart, Meesho &amp; Myntra
+          <span className="hidden sm:inline">Powered by Gemini AI · Searches Amazon, Flipkart, Meesho &amp; Myntra</span>
+          <span className="sm:hidden">Powered by Gemini AI</span>
         </motion.div>
 
         {/* Headline */}
@@ -119,17 +112,16 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.7 }}
-          className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.9] mb-4"
+          className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6 text-balance"
         >
-          <span style={{ color: "var(--text-primary)" }}>Search</span>
-          <br />
+          <span style={{ color: "var(--text-primary)" }}>Search </span>
           <span className="gradient-text">Smarter.</span>
           <br />
           <span style={{ color: "var(--text-primary)" }}>Shop Better.</span>
         </motion.h1>
 
         {/* Flip word */}
-        <div className="h-12 flex items-center justify-center my-4">
+        <div className="h-10 flex items-center justify-center gap-3 mb-6">
           <AnimatePresence mode="wait">
             <motion.span
               key={wordIdx}
@@ -137,7 +129,7 @@ export default function Hero() {
               animate={{ rotateX: 0,  opacity: 1, y: 0  }}
               exit={{    rotateX: -90, opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.2, 0.65, 0.3, 0.9] }}
-              className="text-2xl md:text-3xl font-bold tracking-widest"
+              className="text-lg md:text-2xl font-bold tracking-widest"
               style={{
                 color: "var(--accent-violet)",
                 fontVariantNumeric: "tabular-nums",
@@ -147,7 +139,7 @@ export default function Hero() {
               {FLIP_WORDS[wordIdx]}
             </motion.span>
           </AnimatePresence>
-          <span className="ml-3 text-xl md:text-2xl font-medium" style={{ color: "var(--text-secondary)" }}>
+          <span className="text-base md:text-xl font-medium" style={{ color: "var(--text-secondary)" }}>
             across 4 platforms
           </span>
         </div>
@@ -157,7 +149,7 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="text-base md:text-lg max-w-xl mb-10"
+          className="text-base md:text-lg max-w-xl mb-10 leading-relaxed text-pretty"
           style={{ color: "var(--text-secondary)" }}
         >
           One search. Four stores. AI picks the best deal for you — instantly.
@@ -187,7 +179,7 @@ export default function Hero() {
             </div>
             <button
               type="submit"
-              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shrink-0"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.02] shrink-0"
               style={{ background: "var(--gradient-accent)" }}
             >
               Search <ArrowRight className="w-4 h-4" />
@@ -200,16 +192,16 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9 }}
-          className="flex items-center gap-3 flex-wrap justify-center"
+          className="flex items-center gap-2.5 flex-wrap justify-center"
         >
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>Searches across</span>
+          <span className="text-xs mr-1" style={{ color: "var(--text-muted)" }}>Searches across</span>
           {SITE_LOGOS.map(s => (
             <div
               key={s.name}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
               style={{
-                background: `${s.color}18`,
-                border: `1px solid ${s.color}40`,
+                background: `${s.color}14`,
+                border: `1px solid ${s.color}33`,
                 color: s.color,
               }}
             >
