@@ -1,9 +1,12 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import httpx
 from bs4 import BeautifulSoup
 from typing import List
 from models.product import Product
 from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
-import os
 
 SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
 SCRAPER_API_URL = "http://api.scraperapi.com"
