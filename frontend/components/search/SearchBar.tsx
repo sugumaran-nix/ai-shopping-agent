@@ -27,7 +27,7 @@ export default function SearchBar({ defaultQuery = "", defaultSites = SITES, onS
   const toggleSite = (site: string) => {
     setSelectedSites(prev =>
       prev.includes(site)
-        ? prev.length > 1 ? prev.filter(s => s !== site) : prev  // keep at least 1
+        ? prev.length > 1 ? prev.filter(s => s !== site) : prev
         : [...prev, site]
     );
   };
@@ -57,7 +57,7 @@ export default function SearchBar({ defaultQuery = "", defaultSites = SITES, onS
               autoFocus
             />
             {query && (
-              <button type="button" onClick={clear} className="p-1 rounded-full hover:bg-white/10">
+              <button type="button" onClick={clear} className="p-1 rounded-full hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]">
                 <X className="w-3.5 h-3.5" style={{ color: "var(--text-secondary)" }} />
               </button>
             )}
@@ -65,19 +65,21 @@ export default function SearchBar({ defaultQuery = "", defaultSites = SITES, onS
           <button
             type="button"
             onClick={() => setShowFilters(v => !v)}
-            className="p-3 rounded-xl transition-colors"
+            className="p-3 rounded-xl transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
             style={{
-              background: showFilters ? "rgba(124,58,237,0.2)" : "transparent",
+              background: showFilters ? "rgba(109,40,217,0.2)" : "transparent",
               color: showFilters ? "var(--accent-violet)" : "var(--text-secondary)",
             }}
             title="Filter platforms"
+            aria-label="Filter platforms"
+            aria-expanded={showFilters}
           >
             <Filter className="w-4 h-4" />
           </button>
           <button
             type="submit"
             disabled={loading || query.trim().length < 2}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-black)]"
             style={{ background: "var(--gradient-accent)" }}
           >
             {loading ? (
@@ -109,7 +111,7 @@ export default function SearchBar({ defaultQuery = "", defaultSites = SITES, onS
                   key={site}
                   type="button"
                   onClick={() => toggleSite(site)}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
                   style={{
                     background: active ? `${SITE_COLORS[site]}20` : "rgba(255,255,255,0.04)",
                     border: `1px solid ${active ? SITE_COLORS[site] + "60" : "rgba(255,255,255,0.08)"}`,

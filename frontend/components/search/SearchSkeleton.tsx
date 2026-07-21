@@ -17,7 +17,7 @@ export function CardSkeleton() {
 
 export function AnalysisSkeleton() {
   return (
-    <div className="glass rounded-2xl p-4 animate-pulse" style={{ border: "1px solid rgba(124,58,237,0.2)" }}>
+    <div className="glass rounded-2xl p-4 animate-pulse" style={{ border: "1px solid rgba(109,40,217,0.2)" }}>
       <div className="flex items-center gap-3 mb-4">
         <div className="w-8 h-8 rounded-xl bg-white/10" />
         <div className="space-y-2 flex-1">

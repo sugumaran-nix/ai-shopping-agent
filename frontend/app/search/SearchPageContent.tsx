@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Search } from "lucide-react";
 
 import SearchBar    from "@/components/search/SearchBar";
 import ProductCard  from "@/components/search/ProductCard";
@@ -56,6 +56,7 @@ export default function SearchPageContent() {
     }
   }, [router]);
 
+  // Auto-search on mount if query in URL
   useEffect(() => {
     if (initQ.trim().length >= 2) {
       doSearch(initQ, ["amazon", "flipkart", "meesho", "myntra"]);
@@ -63,6 +64,7 @@ export default function SearchPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Filtered + sorted products
   const displayed = useMemo<Product[]>(() => {
     if (!result) return [];
     let prods = siteFilter === "all"
@@ -80,6 +82,7 @@ export default function SearchPageContent() {
     });
   }, [result, siteFilter, sort]);
 
+  // Per-site counts
   const siteCounts = useMemo(() => {
     if (!result) return {};
     return result.products.reduce<Record<string, number>>((acc, p) => {
@@ -110,7 +113,7 @@ export default function SearchPageContent() {
           />
         </div>
 
-        {/* Loading status */}
+        {/* Status text while searching */}
         {loading && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -118,13 +121,15 @@ export default function SearchPageContent() {
             className="text-center mb-6"
           >
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Scanning 4 platforms for the best deal&hellip;
+              🔎 Searching Amazon, Flipkart, Meesho {"&"} Myntra…
             </p>
           </motion.div>
         )}
 
+        {/* AI Analysis skeleton */}
         {loading && <div className="mb-6"><AnalysisSkeleton /></div>}
 
+        {/* AI Analysis result */}
         {hasResults && !loading && (
           <div className="mb-6">
             <AIAnalysis
@@ -135,6 +140,7 @@ export default function SearchPageContent() {
           </div>
         )}
 
+        {/* Filters + sort bar */}
         {hasResults && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -153,7 +159,7 @@ export default function SearchPageContent() {
               <select
                 value={sort}
                 onChange={e => setSort(e.target.value as SortKey)}
-                className="text-xs rounded-xl px-3 py-2 outline-none"
+                className="text-xs rounded-xl px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
                 style={{
                   background: "var(--glass-bg)",
                   border: "1px solid var(--glass-border)",
@@ -173,6 +179,7 @@ export default function SearchPageContent() {
           </motion.div>
         )}
 
+        {/* Product grid */}
         {loading && <GridSkeleton />}
 
         {!loading && hasResults && (
@@ -183,10 +190,12 @@ export default function SearchPageContent() {
           </div>
         )}
 
+        {/* Empty state */}
         {!loading && result && result.products.length === 0 && (
           <EmptyState query={currentQ} onReset={() => { setResult(null); setError(null); }} />
         )}
 
+        {/* Error state */}
         {!loading && error && (
           <ErrorState
             message={error}
@@ -194,21 +203,18 @@ export default function SearchPageContent() {
           />
         )}
 
-        {/* Idle state */}
+        {/* Initial idle state */}
         {!loading && !result && !error && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="flex flex-col items-center py-24 text-center"
           >
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 glass"
-              style={{ border: "1px solid rgba(109,40,217,0.3)" }}>
-              <Search className="w-7 h-7" style={{ color: "var(--accent-violet)" }} />
-            </div>
+            <Search className="w-10 h-10 mb-4" style={{ color: "var(--accent-violet)" }} />
             <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
               Find the best price across 4 stores
             </h2>
-            <p className="text-sm max-w-sm" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Type any product — iPhone, kurta, boAt headphones — and get AI-ranked results instantly.
             </p>
           </motion.div>

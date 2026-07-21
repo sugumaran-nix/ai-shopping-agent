@@ -31,7 +31,7 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
 
       <button
         onClick={onRetry}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-black)]"
         style={{ background: "var(--gradient-accent)" }}
       >
         <RefreshCw className="w-4 h-4" />

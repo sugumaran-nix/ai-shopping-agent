@@ -25,8 +25,12 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 cursor-pointer"
+        className="flex items-center justify-between p-4 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
         onClick={() => setExpanded(v => !v)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(v => !v); } }}
+        aria-expanded={expanded}
         style={{ borderBottom: expanded ? "1px solid rgba(109,40,217,0.15)" : "none" }}
       >
         <div className="flex items-center gap-3">

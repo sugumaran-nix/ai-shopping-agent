@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Star, ExternalLink, TrendingDown } from "lucide-react";
 import { Product } from "@/types";
 import { formatPrice, truncate } from "@/lib/utils";
@@ -14,8 +15,8 @@ interface ProductCardProps {
 const PLACEHOLDER = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop";
 
 export default function ProductCard({ product, index }: ProductCardProps) {
-  const meta   = SITE_META[product.site] || { label: product.site, color: "#888", bg: "rgba(136,136,136,0.1)" };
-  const imgSrc = product.image_url || PLACEHOLDER;
+  const meta    = SITE_META[product.site] || { label: product.site, color: "#888", bg: "rgba(136,136,136,0.1)" };
+  const imgSrc  = product.image_url || PLACEHOLDER;
 
   return (
     <motion.div
@@ -26,17 +27,18 @@ export default function ProductCard({ product, index }: ProductCardProps) {
     >
       {/* Image */}
       <div className="relative h-44 overflow-hidden bg-white/5">
-        <img
+        <Image
           src={imgSrc}
           alt={product.title}
-          className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-contain p-2 transition-transform duration-500 group-hover:scale-105"
           onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
-          loading="lazy"
         />
 
         {/* Site badge */}
         <div
-          className="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-bold"
+          className="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-bold z-10"
           style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}40` }}
         >
           {meta.label}
@@ -44,7 +46,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
 
         {/* Discount badge */}
         {product.discount && product.discount > 0 && (
-          <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1"
+          <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 z-10"
             style={{ background: "rgba(5,150,105,0.2)", color: "#10B981", border: "1px solid rgba(16,185,129,0.3)" }}>
             <TrendingDown className="w-3 h-3" />
             {product.discount}% off
@@ -95,7 +97,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           href={product.product_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.01] focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="mt-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.01] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
           style={{ background: meta.color }}
         >
           View on {meta.label}

@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.amazonaws.com" },
     ],
   },
-  // Allow cross-origin fetch to Render backend
   async headers() {
     return [
       {
