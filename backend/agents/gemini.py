@@ -1,8 +1,10 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import google.generativeai as genai
 from typing import List
 from models.product import Product
-import os
-import json
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
