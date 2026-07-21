@@ -21,8 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
+        {/* Galaxy background layers */}
         <div className="galaxy-bg" aria-hidden="true" />
-        <div className="stars" aria-hidden="true" />
+        <div className="stars"     aria-hidden="true" />
 
         <Navbar />
         <main>{children}</main>

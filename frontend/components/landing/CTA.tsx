@@ -33,19 +33,15 @@ export default function CTA() {
 
         <Link
           href="/search"
-          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-white text-lg transition-all hover:opacity-90 hover:scale-[1.02] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-black)]"
+          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-white text-lg transition-all hover:opacity-90 hover:scale-[1.02]"
           style={{ background: "var(--gradient-accent)" }}
         >
           Try It Free — No Signup
           <ArrowRight className="w-5 h-5" />
         </Link>
 
-        <p className="mt-4 text-xs" style={{ color: "var(--text-secondary)" }}>
-          No account needed
-          <span className="mx-2 inline-block w-1 h-1 rounded-full align-middle" style={{ background: "var(--text-muted)" }} />
-          Works on mobile
-          <span className="mx-2 inline-block w-1 h-1 rounded-full align-middle" style={{ background: "var(--text-muted)" }} />
-          Powered by Gemini AI
+        <p className="mt-5 text-xs" style={{ color: "var(--text-muted)" }}>
+          No account needed &nbsp;&middot;&nbsp; Works on mobile &nbsp;&middot;&nbsp; Powered by Gemini AI
         </p>
       </motion.div>
     </section>

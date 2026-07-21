@@ -22,20 +22,20 @@ export default function Footer() {
 
         {/* Links */}
         <div className="flex items-center gap-6 text-sm" style={{ color: "var(--text-secondary)" }}>
-          <Link href="/" className="hover:text-[var(--text-primary)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] rounded">Home</Link>
-          <Link href="/search" className="hover:text-[var(--text-primary)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] rounded">Search</Link>
+          <Link href="/" className="hover:text-[var(--text-primary)] transition-colors">Home</Link>
+          <Link href="/search" className="hover:text-[var(--text-primary)] transition-colors">Search</Link>
           <a
             href="https://github.com/sugumaran-nix/ai-shopping-agent"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] rounded"
+            className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"
           >
             <Github className="w-4 h-4" /> GitHub
           </a>
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Built by Sugumaran · Next.js + FastAPI + Gemini AI
+          Built by Sugumaran &middot; Next.js + FastAPI + Gemini AI
         </p>
       </div>
     </footer>

@@ -25,7 +25,7 @@ export default function SiteFilter({ selected, onChange, counts, total }: SiteFi
           <button
             key={site}
             onClick={() => onChange(site)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={{
               background: isActive ? `${color}25` : "rgba(255,255,255,0.04)",
               border: `1px solid ${isActive ? color + "60" : "rgba(255,255,255,0.08)"}`,

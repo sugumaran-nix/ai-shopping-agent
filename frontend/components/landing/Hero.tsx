@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Search, ArrowRight, Sparkles } from "lucide-react";
 import gsap from "gsap";
 
@@ -20,11 +18,11 @@ const MARQUEE_IMAGES = [
   { src: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=300&h=300&fit=crop", alt: "Fashion" },
 ];
 
-const FLIP_WORDS = [
-  { text: "AMAZON",   color: "#FF9900" },
-  { text: "FLIPKART", color: "#2874F0" },
-  { text: "MEESHO",   color: "#F43397" },
-  { text: "MYNTRA",   color: "#FF3F6C" },
+const FLIP_PLATFORMS = [
+  { name: "AMAZON",   color: "#FF9900" },
+  { name: "FLIPKART", color: "#2874F0" },
+  { name: "MEESHO",   color: "#F43397" },
+  { name: "MYNTRA",   color: "#FF3F6C" },
 ];
 
 const ALL_IMAGES = [...MARQUEE_IMAGES, ...MARQUEE_IMAGES];
@@ -33,9 +31,7 @@ export default function Hero() {
   const trackRef  = useRef<HTMLDivElement>(null);
   const [wordIdx, setWordIdx] = useState(0);
   const [query, setQuery]     = useState("");
-  const router = useRouter();
 
-  // GSAP marquee
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
@@ -55,39 +51,38 @@ export default function Hero() {
     return () => ctx.revert();
   }, []);
 
-  // Flip words
   useEffect(() => {
-    const t = setInterval(() => setWordIdx(i => (i + 1) % FLIP_WORDS.length), 2200);
+    const t = setInterval(() => setWordIdx(i => (i + 1) % FLIP_PLATFORMS.length), 2000);
     return () => clearInterval(t);
   }, []);
+
+  const currentPlatform = FLIP_PLATFORMS[wordIdx];
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-24 pb-16">
 
-      {/* Marquee strip — floats at top */}
+      {/* Marquee strip */}
       <div className="absolute top-20 left-0 right-0 overflow-hidden pointer-events-none" style={{ height: 180 }}>
         <div ref={trackRef} className="flex gap-4 absolute top-0 left-0" style={{ willChange: "transform" }}>
           {ALL_IMAGES.map((img, i) => (
             <div
               key={i}
-              className="shrink-0 rounded-2xl overflow-hidden relative"
+              className="shrink-0 rounded-2xl overflow-hidden"
               style={{
                 width: 200, height: 160,
                 border: "1px solid var(--glass-border)",
                 background: "var(--glass-bg)",
               }}
             >
-              <Image
+              <img
                 src={img.src}
                 alt={img.alt}
-                fill
-                sizes="200px"
-                className="object-cover opacity-60"
+                className="w-full h-full object-cover opacity-60"
+                loading="lazy"
               />
             </div>
           ))}
         </div>
-        {/* Fade edges */}
         <div className="absolute inset-y-0 left-0 w-24 pointer-events-none"
           style={{ background: "linear-gradient(to right, var(--color-black), transparent)" }} />
         <div className="absolute inset-y-0 right-0 w-24 pointer-events-none"
@@ -110,7 +105,7 @@ export default function Hero() {
           }}
         >
           <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-violet)" }} />
-          Powered by Gemini AI · Searches Amazon, Flipkart, Meesho {"&"} Myntra
+          Powered by Gemini AI &middot; Searches 4 Indian e-commerce platforms
         </motion.div>
 
         {/* Headline */}
@@ -125,8 +120,11 @@ export default function Hero() {
           <span className="gradient-text">Buy Smarter.</span>
         </motion.h1>
 
-        {/* Flip word */}
-        <div className="h-12 flex items-center justify-center my-4">
+        {/* Platform flip */}
+        <div className="h-12 flex items-center justify-center my-4 gap-3">
+          <span className="text-xl md:text-2xl font-medium" style={{ color: "var(--text-secondary)" }}>
+            Now searching
+          </span>
           <AnimatePresence mode="wait">
             <motion.span
               key={wordIdx}
@@ -134,19 +132,15 @@ export default function Hero() {
               animate={{ rotateX: 0,  opacity: 1, y: 0  }}
               exit={{    rotateX: -90, opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.2, 0.65, 0.3, 0.9] }}
-              className="text-2xl md:text-3xl font-bold tracking-widest"
+              className="text-2xl md:text-3xl font-black tracking-widest"
               style={{
-                color: FLIP_WORDS[wordIdx].color,
-                fontVariantNumeric: "tabular-nums",
+                color: currentPlatform.color,
                 display: "inline-block",
               }}
             >
-              {FLIP_WORDS[wordIdx].text}
+              {currentPlatform.name}
             </motion.span>
           </AnimatePresence>
-          <span className="ml-3 text-xl md:text-2xl font-medium" style={{ color: "var(--text-secondary)" }}>
-            compared instantly
-          </span>
         </div>
 
         {/* Sub */}
@@ -168,7 +162,7 @@ export default function Hero() {
           className="w-full max-w-xl mb-8"
         >
           <form
-            onSubmit={e => { e.preventDefault(); if (query.trim()) router.push(`/search?q=${encodeURIComponent(query.trim())}`) }}
+            onSubmit={e => { e.preventDefault(); if (query.trim()) window.location.href = `/search?q=${encodeURIComponent(query.trim())}` }}
             className="flex gap-2 glass rounded-2xl p-2"
           >
             <div className="flex-1 flex items-center gap-3 px-3">
@@ -184,7 +178,7 @@ export default function Hero() {
             </div>
             <button
               type="submit"
-              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-black)]"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 shrink-0"
               style={{ background: "var(--gradient-accent)" }}
             >
               Search <ArrowRight className="w-4 h-4" />

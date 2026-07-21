@@ -73,13 +73,11 @@ export default function Navbar() {
   }, [activeIndex, pathname]);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-      scrolled ? "py-3" : "py-5"
-    }`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "py-3" : "py-5"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] rounded-lg">
+        <Link href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: "var(--gradient-accent)" }}>
             <Zap className="w-4 h-4 text-white" />
@@ -95,7 +93,7 @@ export default function Navbar() {
           ref={navRef}
           className="hidden md:flex relative h-11 rounded-full overflow-hidden"
           style={{
-            background: "rgba(19,17,37,0.6)",
+            background: "rgba(13,13,26,0.6)",
             border: "1px solid rgba(109,40,217,0.25)",
             backdropFilter: "blur(20px)",
           }}
@@ -108,7 +106,7 @@ export default function Navbar() {
                   <Link
                     href={item.href}
                     data-active={isActive}
-                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 block outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] ${
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] ${
                       isActive
                         ? "text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -120,8 +118,6 @@ export default function Navbar() {
               );
             })}
           </ul>
-
-          {/* Spotlight follows mouse */}
           <div
             className="pointer-events-none absolute inset-0 z-[1] transition-opacity duration-300"
             style={{
@@ -129,7 +125,6 @@ export default function Navbar() {
               background: "radial-gradient(120px circle at var(--spotlight-x) 100%, rgba(109,40,217,0.15) 0%, transparent 50%)",
             }}
           />
-          {/* Ambience on active */}
           <div
             className="pointer-events-none absolute bottom-0 left-0 right-0 h-[2px] z-[2]"
             style={{
@@ -142,18 +137,17 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           <Link
             href="/search"
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 glow-violet outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 glow-violet focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
             style={{ background: "var(--gradient-accent)" }}
           >
             <Search className="w-4 h-4" />
             Search Now
           </Link>
           <button
-            className="md:hidden p-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
+            className="md:hidden p-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
             style={{ color: "var(--text-primary)", background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Toggle menu"
-            aria-expanded={menuOpen}
           >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -167,7 +161,7 @@ export default function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-[rgba(81,47,79,0.3)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
+              className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-[rgba(109,40,217,0.15)]"
               style={{ color: "var(--text-primary)" }}
             >
               {item.label}
@@ -175,7 +169,7 @@ export default function Navbar() {
           ))}
           <Link
             href="/search"
-            className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
+            className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white"
             style={{ background: "var(--gradient-accent)" }}
           >
             <Search className="w-4 h-4" /> Search Now
