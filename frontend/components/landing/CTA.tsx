@@ -2,47 +2,88 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+
+const GUARANTEES = [
+  "No account or signup required",
+  "Works on mobile & desktop",
+  "Free forever for shoppers",
+  "Powered by Gemini AI",
+];
 
 export default function CTA() {
   return (
-    <section className="py-24 px-4">
+    <section aria-labelledby="cta-title" className="py-20 px-4">
+      <div className="section-divider mb-16" />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        whileInView={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
-        className="max-w-3xl mx-auto text-center glass rounded-3xl p-12 relative overflow-hidden"
+        className="max-w-3xl mx-auto text-center glass-card rounded-3xl p-12 md:p-16 relative overflow-hidden"
       >
-        {/* Background glow */}
-        <div className="absolute inset-0 -z-10"
+        {/* Background radial glow */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(109,40,217,0.2), transparent 70%)",
+            background: "radial-gradient(ellipse 90% 65% at 50% -10%, rgba(109,40,217,0.22), transparent 70%)",
           }}
         />
 
-        <h2 className="text-4xl md:text-5xl font-black mb-4 leading-tight"
-          style={{ color: "var(--text-primary)" }}>
-          Stop Tab-Switching.{" "}
-          <span className="gradient-text">Start Saving.</span>
-        </h2>
-
-        <p className="text-lg mb-8 max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
-          One search. Four stores. AI does the comparing.
-        </p>
-
-        <Link
-          href="/search"
-          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-white text-lg transition-all hover:opacity-90 hover:scale-[1.02]"
-          style={{ background: "var(--gradient-accent)" }}
+        <motion.h2
+          id="cta-title"
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.1, duration: 0.55 }}
+          className="display-lg text-balance mb-4 relative z-10"
+          style={{ color: "var(--text-primary)" }}
         >
-          Try It Free — No Signup
-          <ArrowRight className="w-5 h-5" />
-        </Link>
+          Stop tab-switching.{" "}
+          <span className="gradient-text">Start saving.</span>
+        </motion.h2>
 
-        <p className="mt-5 text-xs" style={{ color: "var(--text-muted)" }}>
-          No account needed &nbsp;&middot;&nbsp; Works on mobile &nbsp;&middot;&nbsp; Powered by Gemini AI
-        </p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.22 }}
+          className="text-lg mb-8 max-w-md mx-auto relative z-10"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          One search. Four stores. The best deal picked by AI — in under 5 seconds.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.32 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8 relative z-10"
+        >
+          <Link href="/search" className="btn-primary text-base px-8 py-4">
+            Search for free <ArrowRight className="w-5 h-5" />
+          </Link>
+          <Link href="/#features" className="btn-ghost text-base px-6 py-4">
+            See how it works
+          </Link>
+        </motion.div>
+
+        <motion.ul
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.44 }}
+          className="flex flex-wrap gap-x-5 gap-y-2 justify-center relative z-10"
+        >
+          {GUARANTEES.map((g) => (
+            <li key={g} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              <Check className="w-3.5 h-3.5" style={{ color: "var(--accent-emerald)" }} />
+              {g}
+            </li>
+          ))}
+        </motion.ul>
       </motion.div>
     </section>
   );

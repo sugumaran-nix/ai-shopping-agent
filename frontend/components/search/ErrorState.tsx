@@ -11,30 +11,28 @@ interface ErrorStateProps {
 export default function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      role="alert"
+      aria-live="assertive"
       className="flex flex-col items-center justify-center py-24 text-center px-4"
     >
       <div
-        className="w-20 h-20 rounded-2xl flex items-center justify-center glass mb-6"
-        style={{ border: "1px solid rgba(220,38,38,0.3)" }}
+        className="w-20 h-20 rounded-2xl flex items-center justify-center glass-card mb-6"
+        style={{ border: "1px solid rgba(220,38,38,0.28)" }}
       >
-        <AlertTriangle className="w-9 h-9" style={{ color: "#EF4444" }} />
+        <AlertTriangle className="w-9 h-9" style={{ color: "#F87171" }} aria-hidden="true" />
       </div>
 
-      <h3 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+      <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
         Something went wrong
-      </h3>
-      <p className="text-sm mb-6 max-w-xs" style={{ color: "var(--text-secondary)" }}>
+      </h2>
+      <p className="text-sm mb-6 max-w-sm" style={{ color: "var(--text-secondary)" }}>
         {message}
       </p>
 
-      <button
-        onClick={onRetry}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-        style={{ background: "var(--gradient-accent)" }}
-      >
-        <RefreshCw className="w-4 h-4" />
+      <button type="button" onClick={onRetry} className="btn-primary">
+        <RefreshCw className="w-4 h-4" aria-hidden="true" />
         Retry
       </button>
     </motion.div>

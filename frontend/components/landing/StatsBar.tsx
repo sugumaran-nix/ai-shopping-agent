@@ -1,45 +1,79 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
+import { useRef, useEffect, useState } from "react";
 
 const STATS = [
-  { value: "4",    label: "Platforms searched simultaneously" },
-  { value: "AI",   label: "Powered by Gemini 2.0 Flash" },
-  { value: "₹0",   label: "Free — no signup required" },
-  { value: "<5s",  label: "Average search time" },
+  { value: 4,    suffix: "",     label: "Platforms searched at once",   sub: "Amazon · Flipkart · Meesho · Myntra" },
+  { value: 5,    suffix: "s",    label: "Avg. time to results",         sub: "Parallel async scraping" },
+  { value: 100,  suffix: "%",    label: "Free, always",                 sub: "No account. No hidden fees." },
+  { value: 2.0,  suffix: "",     label: "Powered by Gemini Flash",      sub: "Best-in-class AI recommendations" },
 ];
+
+function Counter({ to, suffix, duration = 1.6 }: { to: number; suffix: string; duration?: number }) {
+  const [val, setVal] = useState(0);
+  const ref   = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
+
+  useEffect(() => {
+    if (!inView) return;
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / (duration * 1000), 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setVal(parseFloat((to * ease).toFixed(to % 1 !== 0 ? 1 : 0)));
+      if (p < 1) requestAnimationFrame(step);
+      else setVal(to);
+    };
+    requestAnimationFrame(step);
+  }, [inView, to, duration]);
+
+  return <span ref={ref}>{val}{suffix}</span>;
+}
 
 export default function StatsBar() {
   return (
-    <section className="py-8 px-4">
+    <section aria-label="Key statistics" className="py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="glass rounded-2xl max-w-4xl mx-auto"
-        style={{ border: "1px solid rgba(109,40,217,0.25)" }}
+        transition={{ duration: 0.55 }}
+        className="glass max-w-5xl mx-auto rounded-2xl overflow-hidden"
+        style={{ border: "1px solid rgba(109,40,217,0.2)" }}
       >
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x"
-          style={{ "--tw-divide-opacity": "1", borderColor: "rgba(109,40,217,0.15)" } as React.CSSProperties}>
+        <div className="grid grid-cols-2 md:grid-cols-4">
           {STATS.map((stat, i) => (
             <motion.div
-              key={stat.value}
-              initial={{ opacity: 0, y: 16 }}
+              key={stat.label}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-              className="flex flex-col items-center justify-center py-6 px-4 text-center"
-              style={{ borderColor: "rgba(109,40,217,0.15)" }}
+              transition={{ delay: i * 0.08 }}
+              className="flex flex-col items-center justify-center py-8 px-5 text-center relative"
             >
-              <span
-                className="text-3xl md:text-4xl font-black mb-1 gradient-text"
-              >
-                {stat.value}
+              {/* Divider lines */}
+              {i > 0 && (
+                <div
+                  className="hidden md:block absolute left-0 top-1/4 bottom-1/4 w-px"
+                  style={{ background: "rgba(109,40,217,0.18)" }}
+                />
+              )}
+              {i >= 2 && (
+                <div
+                  className="md:hidden absolute top-0 left-1/4 right-1/4 h-px"
+                  style={{ background: "rgba(109,40,217,0.18)" }}
+                />
+              )}
+
+              <span className="text-4xl font-black mb-1 gradient-text tabular-nums">
+                <Counter to={stat.value} suffix={stat.suffix} />
               </span>
-              <span className="text-xs leading-tight" style={{ color: "var(--text-secondary)" }}>
+              <span className="text-sm font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>
                 {stat.label}
               </span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{stat.sub}</span>
             </motion.div>
           ))}
         </div>

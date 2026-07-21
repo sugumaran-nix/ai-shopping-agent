@@ -1,104 +1,121 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { animate } from "framer-motion";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { animate, motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Zap, Menu, X } from "lucide-react";
+import { Search, Zap, Menu, X, Github } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Home",   href: "/" },
-  { label: "Search", href: "/search" },
+  { label: "Home",         href: "/" },
+  { label: "Search",       href: "/search" },
+  { label: "Features",     href: "/#features" },
+  { label: "How it works", href: "/#howitworks" },
 ];
 
 export default function Navbar() {
-  const pathname  = usePathname();
-  const navRef    = useRef<HTMLElement>(null);
-  const [scrolled,  setScrolled]  = useState(false);
-  const [menuOpen,  setMenuOpen]  = useState(false);
-  const [hoverX,    setHoverX]    = useState<number | null>(null);
-  const spotlightX  = useRef(0);
-  const ambienceX   = useRef(0);
+  const pathname = usePathname();
+  const navRef   = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const spotlightX = useRef(0);
+  const ambienceX  = useRef(0);
+  const [hovered,  setHovered]  = useState(false);
 
-  const activeIndex = NAV_ITEMS.findIndex(item =>
-    item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href))
+  const activeIndex = NAV_ITEMS.findIndex(
+    (item) => item.href === pathname || (item.href !== "/" && !item.href.startsWith("/#") && pathname.startsWith(item.href))
   );
 
+  // Scroll detection
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+
+  // Spotlight follows cursor
+  const handleNavMove = useCallback((e: MouseEvent) => {
     const nav = navRef.current;
     if (!nav) return;
-    const onMove = (e: MouseEvent) => {
-      const rect = nav.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      setHoverX(x);
-      spotlightX.current = x;
-      nav.style.setProperty("--spotlight-x", `${x}px`);
-    };
-    const onLeave = () => {
-      setHoverX(null);
-      const item = nav.querySelector(`[data-active="true"]`) as HTMLElement;
-      if (item) {
-        const navRect = nav.getBoundingClientRect();
-        const itemRect = item.getBoundingClientRect();
-        const target = itemRect.left - navRect.left + itemRect.width / 2;
-        animate(spotlightX.current, target, {
-          type: "spring", stiffness: 200, damping: 20,
-          onUpdate: v => { spotlightX.current = v; nav.style.setProperty("--spotlight-x", `${v}px`); }
-        });
-      }
-    };
-    nav.addEventListener("mousemove", onMove);
-    nav.addEventListener("mouseleave", onLeave);
-    return () => { nav.removeEventListener("mousemove", onMove); nav.removeEventListener("mouseleave", onLeave); };
+    const rect = nav.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    spotlightX.current = x;
+    nav.style.setProperty("--spotlight-x", `${x}px`);
+    setHovered(true);
+  }, []);
+
+  const handleNavLeave = useCallback(() => {
+    setHovered(false);
+    const nav = navRef.current;
+    const item = nav?.querySelector(`[data-active="true"]`) as HTMLElement | null;
+    if (!nav || !item) return;
+    const navRect  = nav.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const target   = itemRect.left - navRect.left + itemRect.width / 2;
+    animate(spotlightX.current, target, {
+      type: "spring", stiffness: 220, damping: 22,
+      onUpdate: (v) => { spotlightX.current = v; nav.style.setProperty("--spotlight-x", `${v}px`); },
+    });
   }, []);
 
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
-    const item = nav.querySelector(`[data-active="true"]`) as HTMLElement;
-    if (!item) return;
+    nav.addEventListener("mousemove", handleNavMove);
+    nav.addEventListener("mouseleave", handleNavLeave);
+    return () => { nav.removeEventListener("mousemove", handleNavMove); nav.removeEventListener("mouseleave", handleNavLeave); };
+  }, [handleNavMove, handleNavLeave]);
+
+  // Ambience tracks active item
+  useEffect(() => {
+    const nav  = navRef.current;
+    const item = nav?.querySelector(`[data-active="true"]`) as HTMLElement | null;
+    if (!nav || !item) return;
     const navRect  = nav.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
     const target   = itemRect.left - navRect.left + itemRect.width / 2;
     animate(ambienceX.current, target, {
-      type: "spring", stiffness: 200, damping: 20,
-      onUpdate: v => { ambienceX.current = v; nav.style.setProperty("--ambience-x", `${v}px`); }
+      type: "spring", stiffness: 220, damping: 22,
+      onUpdate: (v) => { ambienceX.current = v; nav.style.setProperty("--ambience-x", `${v}px`); },
     });
   }, [activeIndex, pathname]);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "py-3" : "py-5"}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+    <header
+      role="banner"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "py-2.5" : "py-4"}`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--gradient-accent)" }}>
+        <Link href="/" className="flex items-center gap-2 shrink-0 group" aria-label="Shopiq home">
+          <div
+            className="w-8 h-8 rounded-[10px] flex items-center justify-center shadow-lg"
+            style={{ background: "var(--gradient-brand)" }}
+          >
             <Zap className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-lg tracking-tight">
+          <span className="font-extrabold text-[1.05rem] tracking-tight leading-none">
             <span className="gradient-text">Shop</span>
             <span style={{ color: "var(--text-primary)" }}>iq</span>
           </span>
         </Link>
 
-        {/* Desktop Nav */}
+        {/* Desktop nav pill */}
         <nav
           ref={navRef}
-          className="hidden md:flex relative h-11 rounded-full overflow-hidden"
+          aria-label="Main navigation"
+          className="hidden md:flex relative h-10 rounded-full overflow-hidden"
           style={{
-            background: "rgba(13,13,26,0.6)",
-            border: "1px solid rgba(109,40,217,0.25)",
-            backdropFilter: "blur(20px)",
+            background: scrolled ? "rgba(12,12,30,0.85)" : "rgba(12,12,30,0.6)",
+            border: "1px solid rgba(109,40,217,0.22)",
+            backdropFilter: "blur(24px)",
           }}
         >
-          <ul className="relative flex items-center h-full px-2 z-10">
+          <ul className="relative flex items-center h-full px-1.5 z-10 list-none">
             {NAV_ITEMS.map((item, i) => {
               const isActive = i === activeIndex;
               return (
@@ -106,11 +123,10 @@ export default function Navbar() {
                   <Link
                     href={item.href}
                     data-active={isActive}
-                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] ${
-                      isActive
-                        ? "text-white"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
+                    className="px-3.5 py-1.5 text-[0.8rem] font-medium rounded-full block transition-colors duration-150"
+                    style={{ color: isActive ? "#fff" : "var(--text-secondary)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = isActive ? "#fff" : "var(--text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = isActive ? "#fff" : "var(--text-secondary)")}
                   >
                     {item.label}
                   </Link>
@@ -118,36 +134,52 @@ export default function Navbar() {
               );
             })}
           </ul>
+
+          {/* Hover spotlight */}
           <div
-            className="pointer-events-none absolute inset-0 z-[1] transition-opacity duration-300"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1] transition-opacity duration-200"
             style={{
-              opacity: hoverX !== null ? 1 : 0,
-              background: "radial-gradient(120px circle at var(--spotlight-x) 100%, rgba(109,40,217,0.15) 0%, transparent 50%)",
+              opacity: hovered ? 1 : 0,
+              background: "radial-gradient(100px circle at var(--spotlight-x, 50%) 200%, rgba(109,40,217,0.18) 0%, transparent 65%)",
             }}
           />
+          {/* Active ambience underline */}
           <div
-            className="pointer-events-none absolute bottom-0 left-0 right-0 h-[2px] z-[2]"
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-0 right-0 h-px z-[2]"
             style={{
-              background: "radial-gradient(60px circle at var(--ambience-x) 0%, rgba(109,40,217,1) 0%, transparent 100%)",
+              background: "radial-gradient(56px circle at var(--ambience-x, 50%) 0%, rgba(109,40,217,0.9) 0%, transparent 100%)",
             }}
           />
         </nav>
 
-        {/* CTA + mobile toggle */}
-        <div className="flex items-center gap-3">
+        {/* Right actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://github.com/sugumaran-nix/ai-shopping-agent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden lg:flex btn-ghost py-2 px-3 text-[0.8rem]"
+            aria-label="View source on GitHub"
+          >
+            <Github className="w-4 h-4" />
+            <span className="hidden xl:inline">GitHub</span>
+          </a>
           <Link
             href="/search"
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 glow-violet focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
-            style={{ background: "var(--gradient-accent)" }}
+            className="hidden md:flex btn-primary py-2.5 px-4 text-[0.8rem]"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5" />
             Search Now
           </Link>
           <button
-            className="md:hidden p-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
-            style={{ color: "var(--text-primary)", background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
-            onClick={() => setMenuOpen(v => !v)}
-            aria-label="Toggle menu"
+            className="md:hidden p-2.5 rounded-xl"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "var(--text-primary)" }}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
           >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -155,27 +187,49 @@ export default function Navbar() {
       </div>
 
       {/* Mobile menu */}
-      {menuOpen && (
-        <div className="md:hidden mt-2 mx-4 rounded-2xl p-4 glass" onClick={() => setMenuOpen(false)}>
-          {NAV_ITEMS.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-[rgba(109,40,217,0.15)]"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link
-            href="/search"
-            className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white"
-            style={{ background: "var(--gradient-accent)" }}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            id="mobile-menu"
+            role="dialog"
+            aria-label="Mobile navigation"
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="md:hidden mx-3 mt-2 rounded-2xl p-3 glass"
           >
-            <Search className="w-4 h-4" /> Search Now
-          </Link>
-        </div>
-      )}
+            <nav>
+              {NAV_ITEMS.map((item) => {
+                const isActive = pathname === item.href || (item.href !== "/" && !item.href.startsWith("/#") && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+                    style={{
+                      color: isActive ? "#fff" : "var(--text-secondary)",
+                      background: isActive ? "rgba(109,40,217,0.15)" : "transparent",
+                    }}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--glass-border)" }}>
+              <Link
+                href="/search"
+                className="btn-primary w-full justify-center"
+                onClick={() => setMenuOpen(false)}
+              >
+                <Search className="w-4 h-4" /> Start Searching — It&apos;s Free
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

@@ -1,101 +1,146 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Search, Brain, TrendingDown, Zap, ShoppingBag, Star } from "lucide-react";
+import { Search, Brain, TrendingDown, Zap, ShoppingBag, Star, Shield, RefreshCw } from "lucide-react";
+
+const PLATFORM_PILLS = [
+  { name: "Amazon",   color: "#FF9900" },
+  { name: "Flipkart", color: "#2874F0" },
+  { name: "Meesho",   color: "#F43397" },
+  { name: "Myntra",   color: "#FF3F6C" },
+];
 
 const FEATURES = [
   {
     icon: Search,
-    title: "4-Platform Search",
-    desc: "Simultaneously searches Amazon, Flipkart, Meesho, and Myntra in one shot. No tab-switching, no manual comparison.",
-    accent: "#7C3AED",
-    span: "col-span-1",
+    accent: "#6D28D9",
+    title: "One search, four stores",
+    desc: "Stop opening four browser tabs. Shopiq fires all four searches in parallel and brings results back in a single, clean view.",
+    span: "md:col-span-1",
+    extra: null,
   },
   {
     icon: Brain,
-    title: "Gemini AI Analysis",
-    desc: "Google's Gemini 2.0 Flash reads all results and tells you the best pick, best value, and buying tips — in plain language.",
-    accent: "#C026D3",
-    span: "col-span-1 md:col-span-2",
+    accent: "#4F46E5",
+    title: "AI-ranked recommendations",
+    desc: "Gemini 2.0 Flash reads all results and gives you a plain-language verdict — best pick, best value, and what to watch out for.",
+    span: "md:col-span-2",
+    extra: "platforms",
   },
   {
     icon: TrendingDown,
-    title: "Real-time Prices",
-    desc: "Prices scraped live. What you see is what's actually on the site right now.",
-    accent: "#0891B2",
-    span: "col-span-1",
+    accent: "#0EA5E9",
+    title: "Live prices, not cached",
+    desc: "Every search scrapes the platforms in real time. No stale prices. No bait-and-switch.",
+    span: "md:col-span-1",
+    extra: null,
   },
   {
     icon: Zap,
-    title: "Instant Results",
-    desc: "Async scraping across all 4 platforms in parallel. Results in seconds, not minutes.",
     accent: "#059669",
-    span: "col-span-1",
+    title: "Results in seconds",
+    desc: "Parallel async scraping means all four platforms finish at once. Typical search returns in under 5 seconds.",
+    span: "md:col-span-1",
+    extra: null,
   },
   {
     icon: Star,
-    title: "Ratings & Reviews",
-    desc: "See star ratings and review counts from each platform side by side so you make an informed choice.",
     accent: "#D97706",
-    span: "col-span-1",
+    title: "Ratings side by side",
+    desc: "Star ratings and review counts from every platform in one view, so you pick the most trusted listing.",
+    span: "md:col-span-1",
+    extra: null,
+  },
+  {
+    icon: Shield,
+    accent: "#DC2626",
+    title: "Free forever. No signup.",
+    desc: "No account, no email, no paywalls. Shopiq will always be free for shoppers.",
+    span: "md:col-span-1",
+    extra: null,
   },
   {
     icon: ShoppingBag,
-    title: "Direct Links",
-    desc: "Every result links directly to the product page on the original store. One click to checkout.",
-    accent: "#DC2626",
-    span: "col-span-1",
+    accent: "#7C3AED",
+    title: "One tap to checkout",
+    desc: "Every card links directly to the product page. Buy on the platform you already trust.",
+    span: "md:col-span-1",
+    extra: null,
+  },
+  {
+    icon: RefreshCw,
+    accent: "#0891B2",
+    title: "Filter & sort freely",
+    desc: "Narrow to a platform, sort by price or rating, and find exactly what you need without re-searching.",
+    span: "md:col-span-1",
+    extra: null,
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="py-24 px-4 max-w-6xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-16"
-      >
-        <span className="text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full"
-          style={{ color: "var(--accent-violet)", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)" }}>
-          Features
-        </span>
-        <h2 className="text-4xl md:text-5xl font-black mt-4 mb-4 leading-tight"
-          style={{ color: "var(--text-primary)" }}>
-          Everything you need to{" "}
-          <span className="gradient-text">shop smarter</span>
-        </h2>
-        <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-          Stop wasting time jumping between apps. Shopiq does it all in one search.
-        </p>
-      </motion.div>
+    <section id="features" aria-labelledby="features-title" className="py-24 px-4">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55 }}
+          className="text-center mb-14"
+        >
+          <span className="pill pill-violet mb-5 mx-auto inline-flex">Features</span>
+          <h2 id="features-title" className="display-lg text-balance mb-4" style={{ color: "var(--text-primary)" }}>
+            Everything you need to{" "}
+            <span className="gradient-text">shop smarter</span>
+          </h2>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--text-secondary)" }}>
+            Stop bouncing between apps. One search surfaces all the data you need to decide.
+          </p>
+        </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {FEATURES.map((f, i) => (
-          <motion.div
-            key={f.title}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1, duration: 0.5 }}
-            className={`glass glass-hover rounded-2xl p-6 cursor-default ${f.span}`}
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-              style={{ background: `${f.accent}20`, border: `1px solid ${f.accent}40` }}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {FEATURES.map((f, i) => (
+            <motion.article
+              key={f.title}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: i * 0.07, duration: 0.45 }}
+              className={`glass-card rounded-2xl p-6 flex flex-col ${f.span}`}
             >
-              <f.icon className="w-5 h-5" style={{ color: f.accent }} />
-            </div>
-            <h3 className="text-base font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-              {f.title}
-            </h3>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              {f.desc}
-            </p>
-          </motion.div>
-        ))}
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 shrink-0"
+                style={{ background: `${f.accent}18`, border: `1px solid ${f.accent}38` }}
+              >
+                <f.icon className="w-4.5 h-4.5" style={{ color: f.accent, width: 18, height: 18 }} />
+              </div>
+              <h3 className="text-[0.95rem] font-bold mb-2 leading-snug" style={{ color: "var(--text-primary)" }}>
+                {f.title}
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {f.desc}
+              </p>
+
+              {f.extra === "platforms" && (
+                <div className="flex gap-2 mt-4 flex-wrap">
+                  {PLATFORM_PILLS.map((p) => (
+                    <span
+                      key={p.name}
+                      className="text-xs px-2.5 py-1 rounded-full font-medium"
+                      style={{
+                        background: `${p.color}14`,
+                        color: p.color,
+                        border: `1px solid ${p.color}35`,
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.article>
+          ))}
+        </div>
       </div>
     </section>
   );
