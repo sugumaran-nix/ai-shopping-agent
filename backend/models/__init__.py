@@ -1,1 +1,1 @@
-from .product import Product
+# models package
