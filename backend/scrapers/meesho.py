@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 from typing import List
 import os
 
-from ..models.product import Product
-from ..utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
+from models.product import Product
+from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
 
 SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
 SCRAPER_API_URL = "http://api.scraperapi.com"
