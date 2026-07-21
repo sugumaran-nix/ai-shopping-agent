@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { animate } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingBag, Search, Zap, Menu, X } from "lucide-react";
+import { Search, Zap, Menu, X } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Home",     href: "/" },
-  { label: "Search",   href: "/search" },
-  { label: "Features", href: "/#features" },
-  { label: "How it works", href: "/#howitworks" },
+  { label: "Home",   href: "/" },
+  { label: "Search", href: "/search" },
 ];
 
 export default function Navbar() {
@@ -22,7 +20,6 @@ export default function Navbar() {
   const spotlightX  = useRef(0);
   const ambienceX   = useRef(0);
 
-  // active index derived from pathname
   const activeIndex = NAV_ITEMS.findIndex(item =>
     item.href === pathname || (item.href !== "/" && pathname.startsWith(item.href))
   );
@@ -33,7 +30,6 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // spotlight follow mouse
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -62,7 +58,6 @@ export default function Navbar() {
     return () => { nav.removeEventListener("mousemove", onMove); nav.removeEventListener("mouseleave", onLeave); };
   }, []);
 
-  // ambience follows active
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -78,9 +73,7 @@ export default function Navbar() {
   }, [activeIndex, pathname]);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-      scrolled ? "py-3" : "py-5"
-    }`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "py-3" : "py-5"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
 
         {/* Logo */}
@@ -100,8 +93,8 @@ export default function Navbar() {
           ref={navRef}
           className="hidden md:flex relative h-11 rounded-full overflow-hidden"
           style={{
-            background: "rgba(19,17,37,0.6)",
-            border: "1px solid rgba(81,47,79,0.35)",
+            background: "rgba(13,13,26,0.6)",
+            border: "1px solid rgba(109,40,217,0.25)",
             backdropFilter: "blur(20px)",
           }}
         >
@@ -113,7 +106,7 @@ export default function Navbar() {
                   <Link
                     href={item.href}
                     data-active={isActive}
-                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 block ${
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)] ${
                       isActive
                         ? "text-white"
                         : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -125,20 +118,17 @@ export default function Navbar() {
               );
             })}
           </ul>
-
-          {/* Spotlight follows mouse */}
           <div
             className="pointer-events-none absolute inset-0 z-[1] transition-opacity duration-300"
             style={{
               opacity: hoverX !== null ? 1 : 0,
-              background: "radial-gradient(120px circle at var(--spotlight-x) 100%, rgba(124,58,237,0.15) 0%, transparent 50%)",
+              background: "radial-gradient(120px circle at var(--spotlight-x) 100%, rgba(109,40,217,0.15) 0%, transparent 50%)",
             }}
           />
-          {/* Ambience on active */}
           <div
             className="pointer-events-none absolute bottom-0 left-0 right-0 h-[2px] z-[2]"
             style={{
-              background: "radial-gradient(60px circle at var(--ambience-x) 0%, rgba(124,58,237,1) 0%, transparent 100%)",
+              background: "radial-gradient(60px circle at var(--ambience-x) 0%, rgba(109,40,217,1) 0%, transparent 100%)",
             }}
           />
         </nav>
@@ -147,14 +137,14 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           <Link
             href="/search"
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 glow-violet"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 glow-violet focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
             style={{ background: "var(--gradient-accent)" }}
           >
             <Search className="w-4 h-4" />
             Search Now
           </Link>
           <button
-            className="md:hidden p-2 rounded-lg"
+            className="md:hidden p-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-violet)]"
             style={{ color: "var(--text-primary)", background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Toggle menu"
@@ -171,7 +161,7 @@ export default function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-[rgba(81,47,79,0.3)]"
+              className="block px-4 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-[rgba(109,40,217,0.15)]"
               style={{ color: "var(--text-primary)" }}
             >
               {item.label}

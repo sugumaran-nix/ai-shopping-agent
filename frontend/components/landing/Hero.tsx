@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import { Search, ArrowRight, Sparkles } from "lucide-react";
 import gsap from "gsap";
 
-// Real Indian e-commerce product images (Unsplash CDN — free)
 const MARQUEE_IMAGES = [
   { src: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop", alt: "Watch" },
   { src: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop", alt: "Sneakers" },
@@ -20,16 +18,13 @@ const MARQUEE_IMAGES = [
   { src: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=300&h=300&fit=crop", alt: "Fashion" },
 ];
 
-const FLIP_WORDS = ["SEARCHING", "COMPARING", "ANALYZING", "FINDING", "SAVING"];
-
-const SITE_LOGOS = [
-  { name: "Amazon",   color: "#FF9900", letter: "A" },
-  { name: "Flipkart", color: "#2874F0", letter: "F" },
-  { name: "Meesho",   color: "#F43397", letter: "M" },
-  { name: "Myntra",   color: "#FF3F6C", letter: "M" },
+const FLIP_PLATFORMS = [
+  { name: "AMAZON",   color: "#FF9900" },
+  { name: "FLIPKART", color: "#2874F0" },
+  { name: "MEESHO",   color: "#F43397" },
+  { name: "MYNTRA",   color: "#FF3F6C" },
 ];
 
-// Duplicate for seamless loop
 const ALL_IMAGES = [...MARQUEE_IMAGES, ...MARQUEE_IMAGES];
 
 export default function Hero() {
@@ -37,11 +32,10 @@ export default function Hero() {
   const [wordIdx, setWordIdx] = useState(0);
   const [query, setQuery]     = useState("");
 
-  // GSAP marquee
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const itemW = 200 + 16; // width + gap
+    const itemW = 200 + 16;
     const oneSet = MARQUEE_IMAGES.length * itemW;
     const ctx = gsap.context(() => {
       gsap.to(track, {
@@ -57,16 +51,17 @@ export default function Hero() {
     return () => ctx.revert();
   }, []);
 
-  // Flip words
   useEffect(() => {
-    const t = setInterval(() => setWordIdx(i => (i + 1) % FLIP_WORDS.length), 2200);
+    const t = setInterval(() => setWordIdx(i => (i + 1) % FLIP_PLATFORMS.length), 2000);
     return () => clearInterval(t);
   }, []);
+
+  const currentPlatform = FLIP_PLATFORMS[wordIdx];
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-24 pb-16">
 
-      {/* Marquee strip — floats at top */}
+      {/* Marquee strip */}
       <div className="absolute top-20 left-0 right-0 overflow-hidden pointer-events-none" style={{ height: 180 }}>
         <div ref={trackRef} className="flex gap-4 absolute top-0 left-0" style={{ willChange: "transform" }}>
           {ALL_IMAGES.map((img, i) => (
@@ -88,7 +83,6 @@ export default function Hero() {
             </div>
           ))}
         </div>
-        {/* Fade edges */}
         <div className="absolute inset-y-0 left-0 w-24 pointer-events-none"
           style={{ background: "linear-gradient(to right, var(--color-black), transparent)" }} />
         <div className="absolute inset-y-0 right-0 w-24 pointer-events-none"
@@ -105,13 +99,13 @@ export default function Hero() {
           transition={{ delay: 0.2 }}
           className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium mb-6"
           style={{
-            background: "rgba(124,58,237,0.12)",
-            border: "1px solid rgba(124,58,237,0.3)",
+            background: "rgba(109,40,217,0.12)",
+            border: "1px solid rgba(109,40,217,0.3)",
             color: "var(--text-primary)",
           }}
         >
           <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-violet)" }} />
-          Powered by Gemini AI · Searches Amazon, Flipkart, Meesho &amp; Myntra
+          Powered by Gemini AI &middot; Searches 4 Indian e-commerce platforms
         </motion.div>
 
         {/* Headline */}
@@ -121,15 +115,16 @@ export default function Hero() {
           transition={{ delay: 0.3, duration: 0.7 }}
           className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.9] mb-4"
         >
-          <span style={{ color: "var(--text-primary)" }}>Search</span>
+          <span style={{ color: "var(--text-primary)" }}>Compare Prices.</span>
           <br />
-          <span className="gradient-text">Smarter.</span>
-          <br />
-          <span style={{ color: "var(--text-primary)" }}>Shop Better.</span>
+          <span className="gradient-text">Buy Smarter.</span>
         </motion.h1>
 
-        {/* Flip word */}
-        <div className="h-12 flex items-center justify-center my-4">
+        {/* Platform flip */}
+        <div className="h-12 flex items-center justify-center my-4 gap-3">
+          <span className="text-xl md:text-2xl font-medium" style={{ color: "var(--text-secondary)" }}>
+            Now searching
+          </span>
           <AnimatePresence mode="wait">
             <motion.span
               key={wordIdx}
@@ -137,19 +132,15 @@ export default function Hero() {
               animate={{ rotateX: 0,  opacity: 1, y: 0  }}
               exit={{    rotateX: -90, opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.2, 0.65, 0.3, 0.9] }}
-              className="text-2xl md:text-3xl font-bold tracking-widest"
+              className="text-2xl md:text-3xl font-black tracking-widest"
               style={{
-                color: "var(--accent-violet)",
-                fontVariantNumeric: "tabular-nums",
+                color: currentPlatform.color,
                 display: "inline-block",
               }}
             >
-              {FLIP_WORDS[wordIdx]}
+              {currentPlatform.name}
             </motion.span>
           </AnimatePresence>
-          <span className="ml-3 text-xl md:text-2xl font-medium" style={{ color: "var(--text-secondary)" }}>
-            across 4 platforms
-          </span>
         </div>
 
         {/* Sub */}
@@ -160,7 +151,7 @@ export default function Hero() {
           className="text-base md:text-lg max-w-xl mb-10"
           style={{ color: "var(--text-secondary)" }}
         >
-          One search. Four stores. AI picks the best deal for you — instantly.
+          Search once across Amazon, Flipkart, Meesho and Myntra. Gemini AI picks the best deal.
         </motion.p>
 
         {/* Search bar */}
@@ -193,30 +184,6 @@ export default function Hero() {
               Search <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-        </motion.div>
-
-        {/* Site logos */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.9 }}
-          className="flex items-center gap-3 flex-wrap justify-center"
-        >
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>Searches across</span>
-          {SITE_LOGOS.map(s => (
-            <div
-              key={s.name}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-              style={{
-                background: `${s.color}18`,
-                border: `1px solid ${s.color}40`,
-                color: s.color,
-              }}
-            >
-              <span className="font-black">{s.letter}</span>
-              {s.name}
-            </div>
-          ))}
         </motion.div>
       </div>
     </section>

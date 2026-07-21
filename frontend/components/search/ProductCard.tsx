@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, ExternalLink, Tag, TrendingDown } from "lucide-react";
+import { Star, ExternalLink, TrendingDown } from "lucide-react";
 import { Product } from "@/types";
 import { formatPrice, truncate } from "@/lib/utils";
 import { SITE_META } from "@/lib/api";
@@ -14,8 +14,8 @@ interface ProductCardProps {
 const PLACEHOLDER = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop";
 
 export default function ProductCard({ product, index }: ProductCardProps) {
-  const meta    = SITE_META[product.site] || { label: product.site, color: "#888", bg: "rgba(136,136,136,0.1)" };
-  const imgSrc  = product.image_url || PLACEHOLDER;
+  const meta   = SITE_META[product.site] || { label: product.site, color: "#888", bg: "rgba(136,136,136,0.1)" };
+  const imgSrc = product.image_url || PLACEHOLDER;
 
   return (
     <motion.div
@@ -95,8 +95,8 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           href={product.product_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.01]"
-          style={{ background: `${meta.color}25`, border: `1px solid ${meta.color}50`, color: meta.color }}
+          className="mt-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.01] focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          style={{ background: meta.color }}
         >
           View on {meta.label}
           <ExternalLink className="w-3.5 h-3.5" />

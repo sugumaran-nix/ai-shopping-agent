@@ -3,38 +3,38 @@
 
 :root {
   /* Core Palette */
-  --color-black:    #07010A;
-  --color-midnight: #131125;
+  --color-black:    #080810;
+  --color-midnight: #0D0D1A;
   --color-coffee:   #110613;
   --color-indigo:   #273759;
   --color-plum:     #512F4F;
 
   /* Glassmorphism */
-  --glass-bg:        rgba(19, 17, 37, 0.45);
-  --glass-border:    rgba(81, 47, 79, 0.30);
-  --glass-shadow:    rgba(7, 1, 10, 0.6);
-  --glass-highlight: rgba(215, 208, 224, 0.08);
+  --glass-bg:        rgba(13, 13, 26, 0.5);
+  --glass-border:    rgba(109, 40, 217, 0.25);
+  --glass-shadow:    rgba(8, 8, 16, 0.6);
+  --glass-highlight: rgba(215, 208, 224, 0.07);
 
   /* Nebula Glows */
-  --nebula-pink:   rgba(180, 80, 160, 0.35);
+  --nebula-pink:   rgba(109, 40, 217, 0.3);
   --nebula-blue:   rgba(39, 55, 137, 0.35);
-  --nebula-purple: rgba(81, 47, 79, 0.45);
+  --nebula-purple: rgba(81, 47, 79, 0.4);
 
   /* Text */
-  --text-primary:   #D7D0E0;
-  --text-secondary: #8A7A9E;
+  --text-primary:   #EDEAF5;
+  --text-secondary: #9B8FC0;
   --text-muted:     #512F4F;
 
   /* Accent */
-  --accent-violet: #7C3AED;
-  --accent-pink:   #C026D3;
-  --accent-teal:   #0891B2;
+  --accent-violet: #6D28D9;
+  --accent-pink:   #7C3AED;
+  --accent-teal:   #0EA5E9;
 
   /* Gradients */
-  --gradient-cosmic: linear-gradient(135deg, #07010A 0%, #131125 40%, #512F4F 70%, #273759 100%);
-  --gradient-nebula: radial-gradient(circle at 30% 20%, rgba(81,47,79,0.6), transparent 60%);
+  --gradient-cosmic: linear-gradient(135deg, #080810 0%, #0D0D1A 40%, #512F4F 70%, #273759 100%);
+  --gradient-nebula: radial-gradient(circle at 30% 20%, rgba(109,40,217,0.5), transparent 60%);
   --gradient-stars:  radial-gradient(circle at 70% 80%, rgba(39,55,137,0.4), transparent 50%);
-  --gradient-accent: linear-gradient(135deg, #7C3AED 0%, #C026D3 50%, #0891B2 100%);
+  --gradient-accent: linear-gradient(135deg, #6D28D9 0%, #7C3AED 60%, #0EA5E9 100%);
 }
 
 * {
@@ -55,17 +55,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Galaxy background — layered radial glows */
+/* Galaxy background */
 .galaxy-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   background: var(--color-black);
   background-image:
-    radial-gradient(ellipse 80% 60% at 10% 10%,  rgba(81,47,79,0.25)  0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(39,55,137,0.20) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 70% at 50% 90%,  rgba(180,80,160,0.15) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 30% at 80% 70%,  rgba(124,58,237,0.18) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 60% at 10% 10%,  rgba(109,40,217,0.2)  0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 20%,  rgba(39,55,137,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 70% at 50% 90%,  rgba(14,165,233,0.1) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 80% 70%,  rgba(109,40,217,0.15) 0%, transparent 50%);
 }
 
 /* Stars overlay */
@@ -74,17 +74,17 @@ body {
   inset: 0;
   z-index: -1;
   background-image:
-    radial-gradient(1px 1px at 20%  30%,  rgba(215,208,224,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80%  10%,  rgba(215,208,224,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 60%  60%,  rgba(215,208,224,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 40%  80%,  rgba(215,208,224,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 15%  70%,  rgba(215,208,224,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90%  50%,  rgba(215,208,224,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 55% 25%, rgba(215,208,224,0.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 35%  45%,  rgba(215,208,224,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 70%  85%,  rgba(215,208,224,0.4) 0%, transparent 100%),
-    radial-gradient(2px 2px at 25%  15%,  rgba(180,80,160,0.8) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 75% 40%, rgba(124,58,237,0.7) 0%, transparent 100%);
+    radial-gradient(1px 1px at 20%  30%,  rgba(237,234,245,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80%  10%,  rgba(237,234,245,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60%  60%,  rgba(237,234,245,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40%  80%,  rgba(237,234,245,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15%  70%,  rgba(237,234,245,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90%  50%,  rgba(237,234,245,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 25%, rgba(237,234,245,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35%  45%,  rgba(237,234,245,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70%  85%,  rgba(237,234,245,0.4) 0%, transparent 100%),
+    radial-gradient(2px 2px at 25%  15%,  rgba(109,40,217,0.8) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 75% 40%, rgba(14,165,233,0.6) 0%, transparent 100%);
 }
 
 /* Glass card */
@@ -102,20 +102,20 @@ body {
   transition: all 0.3s ease;
 }
 .glass-hover:hover {
-  background: rgba(81, 47, 79, 0.25);
-  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(109, 40, 217, 0.12);
+  border-color: rgba(109, 40, 217, 0.4);
   box-shadow:
-    0 0 0 1px rgba(124,58,237,0.2) inset,
-    0 8px 48px rgba(124,58,237,0.15),
-    0 0 80px rgba(180,80,160,0.1);
+    0 0 0 1px rgba(109,40,217,0.2) inset,
+    0 8px 48px rgba(109,40,217,0.15),
+    0 0 80px rgba(14,165,233,0.06);
 }
 
-/* Glow border on accent elements */
+/* Glow */
 .glow-violet {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4), 0 0 40px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 20px rgba(109, 40, 217, 0.4), 0 0 40px rgba(109, 40, 217, 0.2);
 }
 .glow-pink {
-  box-shadow: 0 0 20px rgba(192, 38, 211, 0.4), 0 0 40px rgba(192, 38, 211, 0.2);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4), 0 0 40px rgba(124, 58, 237, 0.2);
 }
 
 /* Gradient text */
@@ -129,8 +129,14 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar        { width: 6px; }
 ::-webkit-scrollbar-track  { background: var(--color-black); }
-::-webkit-scrollbar-thumb  { background: var(--color-plum); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-violet); }
+::-webkit-scrollbar-thumb  { background: var(--accent-violet); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-pink); }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent-violet);
+  outline-offset: 2px;
+}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

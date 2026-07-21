@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, GitBranch, ExternalLink } from "lucide-react";
+import { Zap, Github } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -25,25 +25,17 @@ export default function Footer() {
           <Link href="/" className="hover:text-[var(--text-primary)] transition-colors">Home</Link>
           <Link href="/search" className="hover:text-[var(--text-primary)] transition-colors">Search</Link>
           <a
-            href="https://ai-shopping-agent-dkfm.onrender.com/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
-          >
-            API Docs <ExternalLink className="w-3 h-3" />
-          </a>
-          <a
             href="https://github.com/sugumaran-nix/ai-shopping-agent"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+            className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"
           >
-            <GitBranch className="w-4 h-4" /> GitHub
+            <Github className="w-4 h-4" /> GitHub
           </a>
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Built by Sugumaran · Powered by FastAPI + Gemini AI
+          Built by Sugumaran &middot; Next.js + FastAPI + Gemini AI
         </p>
       </div>
     </footer>
