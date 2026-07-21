@@ -11,8 +11,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from scrapers import scrape_amazon, scrape_flipkart, scrape_meesho, scrape_myntra
-from agents import analyze_products
+from scrapers.amazon import scrape_amazon
+from scrapers.flipkart import scrape_flipkart
+from scrapers.meesho import scrape_meesho
+from scrapers.myntra import scrape_myntra
+from agents.gemini import analyze_products
 from models.product import Product
 
 app = FastAPI(
