@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from scrapers import scrape_amazon, scrape_flipkart, scrape_meesho, scrape_myntra
-from agent import analyze_products
+from agents import analyze_products
 from models.product import Product
 
 app = FastAPI(
