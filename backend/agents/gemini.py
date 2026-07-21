@@ -1,22 +1,22 @@
-import google.generativeai as genai
-from typing import List
 import os
+from typing import List
 
 from models.product import Product
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.0-flash")
+def get_client():
+    from google import genai
+    return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def build_prompt(query: str, products: List[Product]) -> str:
     product_list = []
     for i, p in enumerate(products, 1):
-        product_list.append(
-            f"{i}. [{p.site.upper()}] {p.title}\n"
-            f"   Price: ₹{p.price}"
-            + (f" (MRP: ₹{p.original_price}, {p.discount}% off)" if p.discount else "")
-            + (f"\n   Rating: {p.rating}/5 ({p.reviews} reviews)" if p.rating else "")
-            + f"\n   URL: {p.product_url}"
-        )
+        line = f"{i}. [{p.site.upper()}] {p.title}\n   Price: ₹{p.price}"
+        if p.discount:
+            line += f" (MRP: ₹{p.original_price}, {p.discount}% off)"
+        if p.rating:
+            line += f"\n   Rating: {p.rating}/5 ({p.reviews} reviews)"
+        line += f"\n   URL: {p.product_url}"
+        product_list.append(line)
     products_text = "\n\n".join(product_list)
     return f"""You are an expert Indian shopping assistant. A user searched for: "{query}"
 
@@ -35,10 +35,14 @@ Write in a friendly, helpful tone like a knowledgeable friend."""
 
 async def analyze_products(query: str, products: List[Product]) -> str:
     if not products:
-        return "No products were found across the sites. Try a different search query or check back later."
+        return "No products were found. Try a different search query or check back later."
     try:
+        client = get_client()
         prompt = build_prompt(query, products)
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
         return response.text
     except Exception as e:
         print(f"[Gemini] Error: {e}")
