@@ -1,9 +1,14 @@
+import sys
+import os
+
+# Fix module resolution on Render
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import asyncio
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
