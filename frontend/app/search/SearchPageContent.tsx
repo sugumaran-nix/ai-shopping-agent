@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Loader2, ShoppingBag } from "lucide-react";
 
 import SearchBar    from "@/components/search/SearchBar";
 import ProductCard  from "@/components/search/ProductCard";
@@ -118,10 +118,11 @@ export default function SearchPageContent() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center mb-6"
+            className="flex items-center justify-center gap-2 mb-6"
           >
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--accent-violet)" }} />
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              🔎 Searching Amazon, Flipkart, Meesho &amp; Myntra…
+              Searching Amazon, Flipkart, Meesho &amp; Myntra…
             </p>
           </motion.div>
         )}
@@ -210,11 +211,13 @@ export default function SearchPageContent() {
             animate={{ opacity: 1 }}
             className="flex flex-col items-center py-24 text-center"
           >
-            <p className="text-4xl mb-4">🛍️</p>
+            <div className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 glass">
+              <ShoppingBag className="w-7 h-7" style={{ color: "var(--accent-violet)" }} />
+            </div>
             <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
               What are you looking for?
             </h2>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-sm max-w-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               Search above to compare prices across Amazon, Flipkart, Meesho and Myntra.
             </p>
           </motion.div>
