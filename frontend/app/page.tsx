@@ -27,7 +27,7 @@ export default function Home() {
     try {
       const data = await searchProducts(searchQuery);
       setProducts(data.products);
-      setAnalysis(data.analysis);
+      setAnalysis(data.ai_analysis);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
