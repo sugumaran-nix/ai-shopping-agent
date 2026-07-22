@@ -1,89 +1,93 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from cachetools import TTLCache
-from typing import List
+from pydantic import BaseModel
+from typing import List, Optional
 import asyncio
+from dotenv import load_dotenv
 
-# FIXED: Removed the dots for absolute imports
-from models import SearchRequest, SearchResponse, Product
+load_dotenv()
+
+from scrapers.amazon import scrape_amazon
+from scrapers.flipkart import scrape_flipkart
+from scrapers.meesho import scrape_meesho
+from scrapers.myntra import scrape_myntra
+from agents.gemini import analyze_products
+from models.product import Product
 from config import settings
-from scrapers import scrape_amazon, scrape_flipkart
-from ai_analyzer import analyze_products
 
-app = FastAPI(title="AI Shopping Agent", version="1.0.0")
+app = FastAPI(
+    title="AI Shopping Agent",
+    description="Search products across Amazon, Flipkart, Meesho and Myntra",
+    version="1.0.0",
+)
 
-# CORS - Restrict to allowed origins
+# Safely parse origins: split by comma if provided, otherwise allow all
+origins = settings.allowed_origins.split(",") if settings.allowed_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Rate limiting
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
+class SearchRequest(BaseModel):
+    query: str
+    sites: Optional[List[str]] = ["amazon", "flipkart", "meesho", "myntra"]
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request, exc):
-    raise HTTPException(
-        status_code=429,
-        detail=f"Rate limit exceeded. Try again later."
-    )
+class SearchResponse(BaseModel):
+    query: str
+    total_results: int
+    products: List[Product]
+    ai_analysis: str
 
-# Cache for search results (10 minute TTL)
-search_cache = TTLCache(maxsize=100, ttl=settings.cache_ttl_seconds)
-
-@app.post("/search", response_model=SearchResponse)
-@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
-async def search_products(request: SearchRequest):
-    """Search products across multiple e-commerce sites."""
-    cache_key = f"{request.query}:{','.join(sorted([s.value for s in request.sites]))}"
-    
-    # Check cache first
-    if cache_key in search_cache:
-        return search_cache[cache_key]
-    
-    # Run scrapers concurrently with error handling
-    scraper_tasks = []
-    if "amazon" in [s.value for s in request.sites]:
-        scraper_tasks.append(scrape_amazon(request.query, request.limit))
-    if "flipkart" in [s.value for s in request.sites]:
-        scraper_tasks.append(scrape_flipkart(request.query, request.limit))
-    # Add meesho and myntra tasks here when ready...
-    
-    results = await asyncio.gather(*scraper_tasks, return_exceptions=True)
-    
-    # Filter out exceptions and combine products
-    all_products: List[Product] = []
-    for result in results:
-        if isinstance(result, list):
-            all_products.extend(result)
-        elif isinstance(result, Exception):
-            print(f"Scraper error: {result}")
-    
-    if not all_products:
-        raise HTTPException(status_code=404, detail="No products found")
-    
-    # Analyze with AI
-    analysis = analyze_products(request.query, all_products)
-    
-    response = SearchResponse(
-        query=request.query,
-        products=all_products,
-        analysis=analysis,
-        total=len(all_products)
-    )
-    
-    # Cache the response
-    search_cache[cache_key] = response
-    
-    return response
+@app.get("/")
+async def root():
+    return {"message": "AI Shopping Agent API is running"}
 
 @app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+async def health():
+    return {"status": "ok"}
+
+@app.post("/search", response_model=SearchResponse)
+async def search(request: SearchRequest):
+    if not request.query or len(request.query.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Query too short")
+
+    query = request.query.strip()
+    sites = request.sites or ["amazon", "flipkart", "meesho", "myntra"]
+
+    scraper_map = {
+        "amazon": scrape_amazon,
+        "flipkart": scrape_flipkart,
+        "meesho": scrape_meesho,
+        "myntra": scrape_myntra,
+    }
+
+    tasks = [scraper_map[site](query) for site in sites if site in scraper_map]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    all_products = []
+    for result in results:
+        if isinstance(result, Exception):
+            print(f"[Search] Scraper error: {result}")
+            continue
+        if isinstance(result, list):
+            all_products.extend(result)
+
+    # Sort by price safely (handles None prices without crashing)
+    all_products.sort(key=lambda p: p.price if p.price is not None else float('inf'))
+    
+    ai_analysis = await analyze_products(query, all_products)
+
+    return SearchResponse(
+        query=query,
+        total_results=len(all_products),
+        products=all_products,
+        ai_analysis=ai_analysis,
+    )
