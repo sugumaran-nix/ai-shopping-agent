@@ -1,78 +1,60 @@
 import httpx
 from bs4 import BeautifulSoup
 from typing import List
-import os
-
 from models import Product
 from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
 
-SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
-SCRAPER_API_URL = "http://api.scraperapi.com"
-
 def build_url(query: str) -> str:
-    query_formatted = query.replace(" ", "-")
-    return f"https://www.myntra.com/{query_formatted}"
+    return f"https://www.myntra.com/{query.replace(' ', '-')}"
 
 async def scrape_myntra(query: str) -> List[Product]:
-    target_url = build_url(query)
-    params = {
-        "api_key": SCRAPER_API_KEY,
-        "url": target_url,
-        "country_code": "in",
-        "device_type": "desktop",
-        "render": "true",
-    }
     products = []
     try:
-        async with httpx.AsyncClient(timeout=40.0) as client:
-            response = await client.get(SCRAPER_API_URL, params=params, headers=get_headers())
+        headers = {
+            **get_headers(),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-IN,en;q=0.9",
+        }
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            response = await client.get(build_url(query), headers=headers)
             if response.status_code != 200:
-                print(f"[Myntra] ScraperAPI returned {response.status_code}")
+                print(f"[Myntra] Status {response.status_code}")
                 return []
-            soup = BeautifulSoup(response.text, "lxml")
-            results = soup.select("li.product-base")
-            for item in results[:8]:
-                try:
-                    title_brand = item.select_one("h3.product-brand")
-                    title_name = item.select_one("h4.product-product")
-                    if not title_brand or not title_name:
-                        continue
-                    title = f"{title_brand.get_text(strip=True)} {title_name.get_text(strip=True)}"
-                    link_tag = item.select_one("a")
-                    if not link_tag:
-                        continue
-                    product_url = "https://www.myntra.com/" + link_tag.get("href", "").lstrip("/")
-                    price_tag = item.select_one("span.product-discountedPrice") or item.select_one("div.product-price span")
-                    price = clean_price(price_tag.get_text() if price_tag else None)
-                    if not price:
-                        continue
-                    original_tag = item.select_one("span.product-strike")
-                    original_price = clean_price(original_tag.get_text() if original_tag else None)
-                    discount_tag = item.select_one("span.product-discountPercentage")
-                    if discount_tag:
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Myntra renders products inside a JSON script tag
+            import json, re
+            script_tags = soup.find_all("script")
+            for script in script_tags:
+                text = script.string or ""
+                if "searchData" in text or "products" in text:
+                    match = re.search(r'"products"\s*:\s*(\[.*?\])', text, re.DOTALL)
+                    if match:
                         try:
-                            discount = int(discount_tag.get_text().replace("(", "").replace("% OFF)", "").strip())
-                        except:
-                            discount = calculate_discount(price, original_price)
-                    else:
-                        discount = calculate_discount(price, original_price)
-                    rating_tag = item.select_one("div.product-ratingsContainer span")
-                    rating = clean_rating(rating_tag.get_text() if rating_tag else None)
-                    reviews_tag = item.select_one("div.product-ratingsCount")
-                    reviews = clean_reviews(reviews_tag.get_text() if reviews_tag else None)
-                    img_tag = item.select_one("img.img-responsive")
-                    image_url = img_tag.get("src") if img_tag else None
-                    products.append(Product(
-                        title=title, price=price, original_price=original_price,
-                        discount=discount, rating=rating, reviews=reviews,
-                        image_url=image_url, product_url=product_url,
-                        site="myntra", available=True,
-                    ))
-                except Exception as e:
-                    print(f"[Myntra] Error parsing product: {e}")
-                    continue
+                            items = json.loads(match.group(1))
+                            for item in items[:8]:
+                                title = f"{item.get('brand', '')} {item.get('product', '')}".strip()
+                                if not title: continue
+                                price = float(item.get("price", 0) or 0) or None
+                                if not price: continue
+                                mrp = float(item.get("mrp", 0) or 0) or None
+                                discount = calculate_discount(price, mrp) if mrp else None
+                                rating = float(item.get("rating", 0) or 0) or None
+                                pid = item.get("productId", "")
+                                slug = item.get("landingPageUrl", "")
+                                product_url = f"https://www.myntra.com/{slug}" if slug else f"https://www.myntra.com/{pid}"
+                                images = item.get("images") or []
+                                image_url = images[0].get("src") if images and isinstance(images[0], dict) else None
+                                products.append(Product(
+                                    title=title, price=price, original_price=mrp,
+                                    discount=discount, rating=rating, reviews=None,
+                                    image_url=image_url, product_url=product_url,
+                                    site="myntra", available=True,
+                                ))
+                        except Exception as e:
+                            print(f"[Myntra] JSON parse error: {e}")
+                    break
     except Exception as e:
         print(f"[Myntra] Request failed: {e}")
-        return []
     print(f"[Myntra] Found {len(products)} products")
     return products
