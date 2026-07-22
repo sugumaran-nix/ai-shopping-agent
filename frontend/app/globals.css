@@ -1,11 +1,172 @@
-/* Add to frontend/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Smooth focus rings for inputs */
+/* ── CSS Variables ─────────────────────────────────────────────── */
+:root {
+  --color-black:      #06060F;
+  --color-surface:    #0C0C1E;
+  --color-surface-2:  #10102A;
+
+  --text-primary:     #F0F0FF;
+  --text-secondary:   #A0A0C0;
+  --text-muted:       #606080;
+
+  --accent-violet:    #7C3AED;
+  --accent-indigo:    #4F46E5;
+  --accent-sky:       #0EA5E9;
+
+  --glass-bg:         rgba(255, 255, 255, 0.04);
+  --glass-border:     rgba(255, 255, 255, 0.08);
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-black);
+  color: var(--text-primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100dvh;
+}
+
+/* ── Scene backgrounds ─────────────────────────────────────────── */
+.scene-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%,
+    rgba(109, 40, 217, 0.18) 0%,
+    transparent 70%),
+    var(--color-black);
+}
+
+.scene-nebula {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 40% 40% at 15% 60%, rgba(79, 70, 229, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 85% 40%, rgba(14, 165, 233, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.scene-stars {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.2) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* ── Glass components ──────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Pills / badges ────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.pill-violet {
+  background: rgba(109, 40, 217, 0.12);
+  border: 1px solid rgba(109, 40, 217, 0.28);
+  color: #C4B5FD;
+}
+
+/* ── Typography ────────────────────────────────────────────────── */
+.display-xl {
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.display-md {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #A78BFA, #818CF8, #38BDF8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────── */
 .focus-ring-violet:focus-within {
   box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.15), 0 0 0 4px rgba(109, 40, 217, 0.05);
 }
 
-/* Better line clamp utility */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -13,18 +174,20 @@
   overflow: hidden;
 }
 
-/* Subtle text gradient for prices */
 .text-gradient-price {
   background: linear-gradient(to right, #ffffff, #a5b4fc);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Hide scrollbar for clean horizontal scrolling if needed */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ── Marquee animation ─────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
