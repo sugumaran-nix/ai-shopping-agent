@@ -3,7 +3,7 @@ services:
     name: ai-shopping-agent-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerContext: .   # <--- CRITICAL FIX: Build from the root directory
     envVars:
       - key: GEMINI_API_KEY
         sync: false
