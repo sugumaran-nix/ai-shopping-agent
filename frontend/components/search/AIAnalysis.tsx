@@ -1,7 +1,8 @@
+// frontend/components/search/AIAnalysis.tsx
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, TrendingUp, ShieldCheck, Lightbulb } from "lucide-react";
 import { useState, ReactNode } from "react";
 
 interface AIAnalysisProps {
@@ -10,49 +11,41 @@ interface AIAnalysisProps {
   total: number;
 }
 
-/** Render one line of Gemini markdown → JSX */
 function renderLine(line: string, i: number): ReactNode {
-  const isHeader = /^#{1,3}\s/.test(line) || /^(BEST PICK|BEST VALUE|COMPARISON|TIPS|BUYING)/i.test(line.trim());
-  const isBullet = /^[-•*]\s/.test(line.trim());
+  const trimmed = line.trim();
+  if (!trimmed) return null;
 
-  // Strip markdown prefixes
-  const stripped = line.replace(/^#{1,3}\s+/, "").replace(/^[-•*]\s+/, "");
-
-  // Inline bold **text**
+  const isHeader = /^#{1,3}\s/.test(trimmed) || /^(BEST|COMPARISON|TIPS|BUYING)/i.test(trimmed);
+  const isBullet = /^[-•*]\s/.test(trimmed);
+  const stripped = trimmed.replace(/^#{1,3}\s+/, "").replace(/^[-•*]\s+/, "");
+  
+  // Parse **bold** text
   const parts = stripped.split(/\*\*(.+?)\*\*/g);
   const content = parts.map((p, j) =>
-    j % 2 === 1 ? (
-      <strong key={j} style={{ color: "var(--text-primary)", fontWeight: 600 }}>{p}</strong>
-    ) : p
+    j % 2 === 1 ? <strong key={j} className="text-white font-semibold">{p}</strong> : p
   );
-
-  if (!stripped.trim()) return null;
 
   if (isHeader) {
     return (
-      <p key={i} className="text-sm font-semibold mt-4 mb-1 first:mt-0" style={{ color: "var(--text-primary)" }}>
+      <h4 key={i} className="text-sm font-bold text-white mt-5 mb-2 flex items-center gap-2 first:mt-0">
+        {trimmed.toLowerCase().includes("best") && <TrendingUp className="w-4 h-4 text-emerald-400" />}
+        {trimmed.toLowerCase().includes("tip") && <Lightbulb className="w-4 h-4 text-amber-400" />}
+        {trimmed.toLowerCase().includes("compar") && <ShieldCheck className="w-4 h-4 text-sky-400" />}
         {content}
-      </p>
+      </h4>
     );
   }
 
   if (isBullet) {
     return (
-      <p
-        key={i}
-        className="text-sm pl-3 my-1 leading-relaxed"
-        style={{
-          color: "var(--text-secondary)",
-          borderLeft: "2px solid rgba(109,40,217,0.45)",
-        }}
-      >
+      <p key={i} className="text-sm text-gray-300 pl-4 my-1.5 leading-relaxed border-l-2 border-violet-500/40">
         {content}
       </p>
     );
   }
 
   return (
-    <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">
+    <p key={i} className="text-sm text-gray-400 leading-relaxed my-1">
       {content}
     </p>
   );
@@ -66,62 +59,57 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45 }}
-      className="glass-card rounded-2xl overflow-hidden"
-      style={{ border: "1px solid rgba(109,40,217,0.28)" }}
+      className="relative group rounded-2xl overflow-hidden"
     >
-      {/* Header — button for accessibility */}
-      <button
-        type="button"
-        className="w-full flex items-center justify-between p-4 text-left cursor-pointer transition-colors hover:bg-white/[0.025]"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        aria-controls="ai-analysis-body"
-        style={{ borderBottom: expanded ? "1px solid rgba(109,40,217,0.14)" : "none" }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: "rgba(109,40,217,0.18)",
-              border: "1px solid rgba(109,40,217,0.38)",
-            }}
-          >
-            <Sparkles className="w-4 h-4" style={{ color: "#A78BFA" }} aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-              AI Recommendation
-            </p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              Analysed {total} results for &ldquo;{query}&rdquo;
-            </p>
-          </div>
-        </div>
-        {expanded
-          ? <ChevronUp  className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} aria-hidden="true" />
-          : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} aria-hidden="true" />
-        }
-      </button>
-
-      {/* Body with AnimatePresence so collapse is also animated */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            id="ai-analysis-body"
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.26, ease: "easeInOut" }}
-            style={{ overflow: "hidden" }}
-          >
-            <div className="p-4 space-y-0.5">
-              {lines.map((line, i) => renderLine(line, i))}
+      {/* Animated Gradient Border Glow */}
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-sky-500 rounded-2xl opacity-30 group-hover:opacity-60 blur-sm transition duration-500" />
+      
+      <div className="relative bg-[#0C0C1E]/80 backdrop-blur-xl border border-white/10 rounded-2xl">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-white/[0.02] transition-colors"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+              <Sparkles className="w-5 h-5 text-violet-300" />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div>
+              <p className="text-base font-bold text-white flex items-center gap-2">
+                AI Shopping Insight
+                <span className="px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-[10px] font-semibold text-violet-300 uppercase tracking-wider">
+                  Beta
+                </span>
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Analysed <span className="text-white font-medium">{total}</span> products for &ldquo;{query}&rdquo;
+              </p>
+            </div>
+          </div>
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 pb-5 pt-1 space-y-1 border-t border-white/5">
+                {lines.map((line, i) => renderLine(line, i))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
