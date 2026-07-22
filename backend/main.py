@@ -61,7 +61,7 @@ async def scrape_amazon(query: str, client: httpx.AsyncClient) -> List[Product]:
         for item in cards[:10]:
             try:
                 # Title — try multiple selectors
-                title_el = (item.select_one("h2 a span")
+                title_el = (item.select_one("h2 a span.a-text-normal") or item.select_one("h2 a span")
                          or item.select_one("h2 span")
                          or item.select_one("span.a-text-normal"))
                 if not title_el: continue
@@ -314,3 +314,4 @@ async def search(request: SearchRequest):
         products=all_products,
         ai_analysis=ai_analysis,
     )
+    
