@@ -16,7 +16,7 @@ from scrapers.flipkart import scrape_flipkart
 from scrapers.meesho import scrape_meesho
 from scrapers.myntra import scrape_myntra
 from agents.gemini import analyze_products
-from models.product import Product
+from models import Product
 from config import settings
 
 app = FastAPI(
