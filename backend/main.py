@@ -25,12 +25,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-origins = settings.allowed_origins.split(",") if settings.allowed_origins != "*" else ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
