@@ -25,7 +25,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Safely parse origins: split by comma if provided, otherwise allow all
 origins = settings.allowed_origins.split(",") if settings.allowed_origins != "*" else ["*"]
 
 app.add_middleware(
@@ -80,9 +79,8 @@ async def search(request: SearchRequest):
         if isinstance(result, list):
             all_products.extend(result)
 
-    # Sort by price safely (handles None prices without crashing)
     all_products.sort(key=lambda p: p.price if p.price is not None else float('inf'))
-    
+
     ai_analysis = await analyze_products(query, all_products)
 
     return SearchResponse(
