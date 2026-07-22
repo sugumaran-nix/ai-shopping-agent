@@ -234,3 +234,20 @@ async def search(request: SearchRequest):
         products=all_products,
         ai_analysis=ai_analysis,
     )
+
+
+@app.get("/debug-html")
+async def debug_html(site: str = "amazon", q: str = "iphone"):
+    """Return raw HTML snippet to inspect selectors."""
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        if site == "amazon":
+            url = f"https://www.amazon.in/s?k={q.replace(' ', '+')}"
+        else:
+            url = f"https://www.flipkart.com/search?q={q.replace(' ', '+')}"
+        r = await client.get(url, headers=HEADERS)
+        soup = BeautifulSoup(r.text, "html.parser")
+        if site == "amazon":
+            card = soup.select_one("div[data-component-type='s-search-result']")
+        else:
+            card = soup.select_one("div._1AtVbE") or soup.select_one("div.tUxRFH") or soup.select_one("div[data-id]")
+        return {"status": r.status_code, "card_html": str(card)[:3000] if card else "NO CARD FOUND"}
