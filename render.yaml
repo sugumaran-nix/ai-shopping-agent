@@ -3,14 +3,14 @@ services:
     name: ai-shopping-agent-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend   # <--- CRITICAL: Tells Docker to only use the backend folder
+    dockerContext: ./backend
     envVars:
       - key: GEMINI_API_KEY
         sync: false
       - key: SCRAPER_API_KEY
         sync: false
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: "*"
       - key: RATE_LIMIT_PER_MINUTE
         value: "10"
       - key: CACHE_TTL_SECONDS
