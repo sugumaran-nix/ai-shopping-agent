@@ -1,8 +1,10 @@
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Optional
-from .models import Product
-from .config import settings
+
+# FIXED: Removed the dots
+from models import Product
+from config import settings
 
 SCRAPER_API_URL = "https://api.scraperapi.com"
 
@@ -112,5 +114,3 @@ async def scrape_flipkart(query: str, limit: int = 8) -> List[Product]:
     except Exception as e:
         print(f"Flipkart scraper failed: {e}")
         return []
-
-# Add similar functions for Meesho and Myntra...
