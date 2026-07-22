@@ -20,6 +20,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
       transition={{ delay: index * 0.04, duration: 0.3 }}
       className="glass-card rounded-2xl overflow-hidden flex flex-col hover:scale-[1.02] transition-transform duration-200"
     >
+      {/* Image */}
       {product.image_url && (
         <div className="relative w-full h-44 bg-white/5 flex items-center justify-center overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -38,6 +39,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
       )}
 
       <div className="flex flex-col flex-1 p-4 gap-3">
+        {/* Site badge */}
         <span
           className="self-start text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider"
           style={{ background: meta.bg, color: meta.color }}
@@ -45,8 +47,10 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           {meta.label}
         </span>
 
+        {/* Title */}
         <p className="text-sm text-gray-200 leading-snug line-clamp-2 flex-1">{product.title}</p>
 
+        {/* Rating */}
         {product.rating && (
           <div className="flex items-center gap-1.5">
             <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
@@ -57,6 +61,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           </div>
         )}
 
+        {/* Price */}
         <div className="flex items-end gap-2">
           <span className="text-lg font-bold text-white">₹{product.price.toLocaleString("en-IN")}</span>
           {product.original_price && product.original_price > product.price && (
@@ -66,7 +71,8 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           )}
         </div>
 
-        
+        {/* CTA */}
+        <a
           href={product.product_url}
           target="_blank"
           rel="noopener noreferrer"
