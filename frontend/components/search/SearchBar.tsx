@@ -8,8 +8,9 @@ import { SITE_META } from "@/lib/api";
 const SITES = ["amazon", "flipkart", "meesho", "myntra"] as const;
 
 interface SearchBarProps {
-  onSearch: (query: string, sites?: string[]) => void;
+  onSearch: (query: string, sites: string[]) => void;
   loading: boolean;
+  defaultQuery?: string;
 }
 
 export default function SearchBar({ onSearch, loading }: SearchBarProps) {
