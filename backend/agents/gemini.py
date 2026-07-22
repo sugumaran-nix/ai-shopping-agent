@@ -1,49 +1,41 @@
-import os
+import google.generativeai as genai
 from typing import List
 
-from models.product import Product
+# FIXED: Removed '.product'
+from models import Product
+from config import settings
 
-def get_client():
-    from google import genai
-    return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-def build_prompt(query: str, products: List[Product]) -> str:
-    product_list = []
-    for i, p in enumerate(products, 1):
-        line = f"{i}. [{p.site.upper()}] {p.title}\n   Price: ₹{p.price}"
-        if p.discount:
-            line += f" (MRP: ₹{p.original_price}, {p.discount}% off)"
-        if p.rating:
-            line += f"\n   Rating: {p.rating}/5 ({p.reviews} reviews)"
-        line += f"\n   URL: {p.product_url}"
-        product_list.append(line)
-    products_text = "\n\n".join(product_list)
-    return f"""You are an expert Indian shopping assistant. A user searched for: "{query}"
-
-Here are the products found across Amazon, Flipkart, Meesho, and Myntra:
-
-{products_text}
-
-Your job:
-1. BEST PICK — recommend the single best product and explain why in 2-3 lines
-2. BEST VALUE — recommend the best value-for-money option
-3. COMPARISON — a short 3-4 line comparison of key differences across sites
-4. TIPS — 1-2 smart buying tips specific to this product category
-
-Be specific, mention prices and site names. Keep total response under 250 words.
-Write in a friendly, helpful tone like a knowledgeable friend."""
+genai.configure(api_key=settings.gemini_api_key)
 
 async def analyze_products(query: str, products: List[Product]) -> str:
-    if not products:
-        return "No products were found. Try a different search query or check back later."
+    """Analyze products using Gemini."""
+    # Limit to top 12 products to reduce token costs
+    top_products = sorted(
+        [p for p in products if p.price and p.price > 0],
+        key=lambda p: (p.rating or 0, -p.price)
+    )[:12]
+    
+    if not top_products:
+        return "No products with valid pricing found for analysis."
+    
+    product_list = "\n".join([
+        f"- {p.title} | ₹{p.price} | Rating: {p.rating or 'N/A'} | {p.site.capitalize()}"
+        for p in top_products
+    ])
+    
+    prompt = f"""Analyze these {len(top_products)} products for "{query}" and provide:
+1. BEST OVERALL
+2. BEST VALUE
+3. PROS (3-4 points)
+4. CONS (2-3 points)
+5. VERDICT (2-3 sentences)
+
+Products:
+{product_list}
+"""
     try:
-        client = get_client()
-        prompt = build_prompt(query, products)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"[Gemini] Error: {e}")
-        return "AI analysis unavailable right now. Please check the product results above."
+        return f"AI analysis temporarily unavailable. Error: {str(e)}"
