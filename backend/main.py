@@ -1,12 +1,14 @@
 import sys
 import os
+import re
+import json
+import asyncio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -38,8 +40,6 @@ class SearchResponse(BaseModel):
     products: List[Product]
     ai_analysis: str
 
-# ── Scrapers ────────────────────────────────────────────────────────
-
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -47,6 +47,7 @@ HEADERS = {
     "Accept-Encoding": "gzip, deflate, br",
 }
 
+# ── Amazon ──────────────────────────────────────────────────────────
 async def scrape_amazon(query: str, client: httpx.AsyncClient) -> List[Product]:
     products = []
     try:
@@ -57,25 +58,60 @@ async def scrape_amazon(query: str, client: httpx.AsyncClient) -> List[Product]:
         soup = BeautifulSoup(r.text, "html.parser")
         cards = soup.select("div[data-component-type='s-search-result']")
         print(f"[Amazon] cards={len(cards)}")
-        for item in cards[:8]:
+        for item in cards[:10]:
             try:
-                title = (item.select_one("h2 span") or item.select_one("h2")).get_text(strip=True)
-                link = item.select_one("h2 a")
-                if not link: continue
-                product_url = "https://www.amazon.in" + link["href"]
+                # Title — try multiple selectors
+                title_el = (item.select_one("h2 a span")
+                         or item.select_one("h2 span")
+                         or item.select_one("span.a-text-normal"))
+                if not title_el: continue
+                title = title_el.get_text(strip=True)
+                if len(title) < 5: continue
+
+                # Link
+                link_el = item.select_one("h2 a") or item.select_one("a.a-link-normal[href]")
+                if not link_el: continue
+                href = link_el.get("href", "")
+                product_url = f"https://www.amazon.in{href}" if href.startswith("/") else href
+
+                # Price
                 price_el = item.select_one("span.a-price > span.a-offscreen")
+                if not price_el:
+                    price_el = item.select_one("span.a-price span")
                 price = clean_price(price_el.get_text() if price_el else None)
                 if not price: continue
-                img = item.select_one("img.s-image")
-                products.append(Product(title=title, price=price, original_price=None, discount=None,
-                    rating=None, reviews=None, image_url=img["src"] if img else None,
-                    product_url=product_url, site="amazon", available=True))
-            except: pass
+
+                # Original price
+                orig_el = item.select_one("span.a-price.a-text-price span.a-offscreen")
+                original_price = clean_price(orig_el.get_text() if orig_el else None)
+                discount = calculate_discount(price, original_price) if original_price else None
+
+                # Rating
+                rating_el = item.select_one("span.a-icon-alt")
+                rating = clean_rating(rating_el.get_text() if rating_el else None)
+
+                # Reviews
+                reviews_el = item.select_one("span.a-size-base.s-underline-text")
+                reviews = clean_reviews(reviews_el.get_text() if reviews_el else None)
+
+                # Image
+                img_el = item.select_one("img.s-image")
+                image_url = img_el.get("src") if img_el else None
+
+                products.append(Product(
+                    title=title, price=price, original_price=original_price,
+                    discount=discount, rating=rating, reviews=reviews,
+                    image_url=image_url, product_url=product_url,
+                    site="amazon", available=True,
+                ))
+            except Exception as e:
+                print(f"[Amazon] parse error: {e}")
     except Exception as e:
-        print(f"[Amazon] error: {e}")
+        print(f"[Amazon] failed: {e}")
     print(f"[Amazon] returning {len(products)}")
     return products
 
+# ── Flipkart ────────────────────────────────────────────────────────
 async def scrape_flipkart(query: str, client: httpx.AsyncClient) -> List[Product]:
     products = []
     try:
@@ -84,37 +120,77 @@ async def scrape_flipkart(query: str, client: httpx.AsyncClient) -> List[Product
         print(f"[Flipkart] status={r.status_code} len={len(r.text)}")
         if r.status_code != 200: return []
         soup = BeautifulSoup(r.text, "html.parser")
-        # Try multiple selectors
-        cards = soup.select("div._1AtVbE") or soup.select("div.tUxRFH") or soup.select("div[data-id]")
+
+        # Cards — try multiple layouts
+        cards = (soup.select("div[data-id]")
+              or soup.select("div.jIjQ8S")
+              or soup.select("div._1AtVbE"))
         print(f"[Flipkart] cards={len(cards)}")
-        for item in cards[:10]:
+
+        for item in cards[:12]:
             try:
-                title_el = item.select_one("div._4rR01T") or item.select_one("a.s1Q9rs") or item.select_one("div.KzDlHZ")
+                # Title — from debug HTML: div.RG5Slk
+                title_el = (item.select_one("div.RG5Slk")
+                         or item.select_one("div.KzDlHZ")
+                         or item.select_one("a.s1Q9rs")
+                         or item.select_one("div._4rR01T"))
                 if not title_el: continue
                 title = title_el.get_text(strip=True)
                 if len(title) < 5: continue
-                price_el = item.select_one("div._30jeq3") or item.select_one("div.Nx9bqj")
+
+                # Price — from debug HTML: div.hZ3P6w
+                price_el = (item.select_one("div.hZ3P6w")
+                          or item.select_one("div.Nx9bqj")
+                          or item.select_one("div._30jeq3"))
                 price = clean_price(price_el.get_text() if price_el else None)
                 if not price: continue
-                link = item.select_one("a[href]")
-                href = link["href"] if link else ""
+
+                # Original price — div.kRYCnD
+                orig_el = (item.select_one("div.kRYCnD")
+                         or item.select_one("div.yRaY8j")
+                         or item.select_one("div._3I9_wc"))
+                original_price = clean_price(orig_el.get_text() if orig_el else None)
+                discount = calculate_discount(price, original_price) if original_price else None
+
+                # Rating — div.MKiFS6
+                rating_el = (item.select_one("div.MKiFS6")
+                           or item.select_one("div.XQDdHH")
+                           or item.select_one("div._3LWZlK"))
+                rating = clean_rating(rating_el.get_text() if rating_el else None)
+
+                # Link — a.k7wcnx
+                link_el = (item.select_one("a.k7wcnx")
+                         or item.select_one("a[href*='/p/']")
+                         or item.select_one("a[href]"))
+                href = link_el.get("href", "") if link_el else ""
                 product_url = f"https://www.flipkart.com{href}" if href.startswith("/") else href
-                img = item.select_one("img._396cs4") or item.select_one("img.DByuf4")
-                products.append(Product(title=title, price=price, original_price=None, discount=None,
-                    rating=None, reviews=None, image_url=img["src"] if img else None,
-                    product_url=product_url, site="flipkart", available=True))
-            except: pass
+
+                # Image — img.UCc1lI
+                img_el = (item.select_one("img.UCc1lI")
+                        or item.select_one("img._396cs4")
+                        or item.select_one("img.DByuf4"))
+                image_url = img_el.get("src") if img_el else None
+
+                products.append(Product(
+                    title=title, price=price, original_price=original_price,
+                    discount=discount, rating=rating, reviews=None,
+                    image_url=image_url, product_url=product_url,
+                    site="flipkart", available=True,
+                ))
+            except Exception as e:
+                print(f"[Flipkart] parse error: {e}")
     except Exception as e:
-        print(f"[Flipkart] error: {e}")
+        print(f"[Flipkart] failed: {e}")
     print(f"[Flipkart] returning {len(products)}")
     return products
 
+# ── Meesho ──────────────────────────────────────────────────────────
 async def scrape_meesho(query: str, client: httpx.AsyncClient) -> List[Product]:
     products = []
     try:
         url = "https://www.meesho.com/api/v1/products/search"
-        headers = {**HEADERS, "Content-Type": "application/json", "Accept": "application/json",
-                   "Origin": "https://www.meesho.com"}
+        headers = {**HEADERS, "Content-Type": "application/json",
+                   "Accept": "application/json", "Origin": "https://www.meesho.com"}
         payload = {"query": query, "page": 1, "pageSize": 8, "filters": [], "facets": {}}
         r = await client.post(url, json=payload, headers=headers)
         print(f"[Meesho] status={r.status_code}")
@@ -131,19 +207,22 @@ async def scrape_meesho(query: str, client: httpx.AsyncClient) -> List[Product]:
                 product_url = f"https://www.meesho.com/{slug}" if slug else "https://www.meesho.com"
                 images = item.get("images") or []
                 image_url = images[0].get("url") if images and isinstance(images[0], dict) else None
-                products.append(Product(title=title, price=price, original_price=None, discount=None,
+                products.append(Product(
+                    title=title, price=price, original_price=None, discount=None,
                     rating=float(item.get("rating") or 0) or None, reviews=None,
-                    image_url=image_url, product_url=product_url, site="meesho", available=True))
-            except: pass
+                    image_url=image_url, product_url=product_url, site="meesho", available=True,
+                ))
+            except Exception as e:
+                print(f"[Meesho] parse error: {e}")
     except Exception as e:
-        print(f"[Meesho] error: {e}")
+        print(f"[Meesho] failed: {e}")
     print(f"[Meesho] returning {len(products)}")
     return products
 
+# ── Myntra ──────────────────────────────────────────────────────────
 async def scrape_myntra(query: str, client: httpx.AsyncClient) -> List[Product]:
     products = []
     try:
-        import json, re
         url = f"https://www.myntra.com/{query.replace(' ', '-')}"
         r = await client.get(url, headers=HEADERS)
         print(f"[Myntra] status={r.status_code} len={len(r.text)}")
@@ -155,7 +234,6 @@ async def scrape_myntra(query: str, client: httpx.AsyncClient) -> List[Product]:
             if match:
                 try:
                     items = json.loads(match.group(1))
-                    print(f"[Myntra] json items={len(items)}")
                     for item in items[:8]:
                         title = f"{item.get('brand','')} {item.get('product','')}".strip()
                         if not title: continue
@@ -165,19 +243,22 @@ async def scrape_myntra(query: str, client: httpx.AsyncClient) -> List[Product]:
                         product_url = f"https://www.myntra.com/{slug}" if slug else "https://www.myntra.com"
                         images = item.get("images") or []
                         image_url = images[0].get("src") if images and isinstance(images[0], dict) else None
-                        products.append(Product(title=title, price=price, original_price=float(item.get("mrp") or 0) or None,
-                            discount=None, rating=float(item.get("rating") or 0) or None, reviews=None,
-                            image_url=image_url, product_url=product_url, site="myntra", available=True))
+                        products.append(Product(
+                            title=title, price=price,
+                            original_price=float(item.get("mrp") or 0) or None,
+                            discount=None, rating=float(item.get("rating") or 0) or None,
+                            reviews=None, image_url=image_url, product_url=product_url,
+                            site="myntra", available=True,
+                        ))
                 except Exception as e:
                     print(f"[Myntra] json error: {e}")
                 break
     except Exception as e:
-        print(f"[Myntra] error: {e}")
+        print(f"[Myntra] failed: {e}")
     print(f"[Myntra] returning {len(products)}")
     return products
 
 # ── Routes ──────────────────────────────────────────────────────────
-
 @app.get("/")
 async def root():
     return {"message": "AI Shopping Agent API is running"}
@@ -188,7 +269,6 @@ async def health():
 
 @app.get("/test-scrape")
 async def test_scrape(q: str = "iphone"):
-    """Debug endpoint to see raw scraper output."""
     async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
         amazon = await scrape_amazon(q, client)
         flipkart = await scrape_flipkart(q, client)
@@ -221,10 +301,10 @@ async def search(request: SearchRequest):
         if isinstance(result, list):
             all_products.extend(result)
         elif isinstance(result, Exception):
-            print(f"[Search] scraper exception: {result}")
+            print(f"[Search] exception: {result}")
 
     all_products.sort(key=lambda p: p.price if p.price else float("inf"))
-    print(f"[Search] total products: {len(all_products)}")
+    print(f"[Search] total={len(all_products)}")
 
     ai_analysis = await analyze_products(query, all_products)
 
@@ -234,20 +314,3 @@ async def search(request: SearchRequest):
         products=all_products,
         ai_analysis=ai_analysis,
     )
-
-
-@app.get("/debug-html")
-async def debug_html(site: str = "amazon", q: str = "iphone"):
-    """Return raw HTML snippet to inspect selectors."""
-    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-        if site == "amazon":
-            url = f"https://www.amazon.in/s?k={q.replace(' ', '+')}"
-        else:
-            url = f"https://www.flipkart.com/search?q={q.replace(' ', '+')}"
-        r = await client.get(url, headers=HEADERS)
-        soup = BeautifulSoup(r.text, "html.parser")
-        if site == "amazon":
-            card = soup.select_one("div[data-component-type='s-search-result']")
-        else:
-            card = soup.select_one("div._1AtVbE") or soup.select_one("div.tUxRFH") or soup.select_one("div[data-id]")
-        return {"status": r.status_code, "card_html": str(card)[:3000] if card else "NO CARD FOUND"}
