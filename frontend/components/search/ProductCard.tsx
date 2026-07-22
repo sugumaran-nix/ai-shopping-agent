@@ -1,137 +1,115 @@
+// frontend/components/search/AIAnalysis.tsx
 "use client";
 
-import { motion } from "framer-motion";
-import { Star, ExternalLink, TrendingDown } from "lucide-react";
-import { Product } from "@/types";
-import { formatPrice, truncate } from "@/lib/utils";
-import { SITE_META } from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, ChevronDown, ChevronUp, TrendingUp, ShieldCheck, Lightbulb } from "lucide-react";
+import { useState, ReactNode } from "react";
 
-interface ProductCardProps {
-  product: Product;
-  index: number;
+interface AIAnalysisProps {
+  analysis: string;
+  query: string;
+  total: number;
 }
 
-const PLACEHOLDER = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop";
+function renderLine(line: string, i: number): ReactNode {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
 
-export default function ProductCard({ product, index }: ProductCardProps) {
-  const meta   = SITE_META[product.site] ?? { label: product.site, color: "#888", bg: "rgba(136,136,136,0.1)" };
-  const imgSrc = product.image_url || PLACEHOLDER;
+  const isHeader = /^#{1,3}\s/.test(trimmed) || /^(BEST|COMPARISON|TIPS|BUYING)/i.test(trimmed);
+  const isBullet = /^[-•*]\s/.test(trimmed);
+  const stripped = trimmed.replace(/^#{1,3}\s+/, "").replace(/^[-•*]\s+/, "");
+  
+  // Parse **bold** text
+  const parts = stripped.split(/\*\*(.+?)\*\*/g);
+  const content = parts.map((p, j) =>
+    j % 2 === 1 ? <strong key={j} className="text-white font-semibold">{p}</strong> : p
+  );
 
-  const savings = product.original_price && product.original_price > product.price
-    ? product.original_price - product.price
-    : null;
+  if (isHeader) {
+    return (
+      <h4 key={i} className="text-sm font-bold text-white mt-5 mb-2 flex items-center gap-2 first:mt-0">
+        {trimmed.toLowerCase().includes("best") && <TrendingUp className="w-4 h-4 text-emerald-400" />}
+        {trimmed.toLowerCase().includes("tip") && <Lightbulb className="w-4 h-4 text-amber-400" />}
+        {trimmed.toLowerCase().includes("compar") && <ShieldCheck className="w-4 h-4 text-sky-400" />}
+        {content}
+      </h4>
+    );
+  }
+
+  if (isBullet) {
+    return (
+      <p key={i} className="text-sm text-gray-300 pl-4 my-1.5 leading-relaxed border-l-2 border-violet-500/40">
+        {content}
+      </p>
+    );
+  }
 
   return (
-    <motion.article
+    <p key={i} className="text-sm text-gray-400 leading-relaxed my-1">
+      {content}
+    </p>
+  );
+}
+
+export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) {
+  const [expanded, setExpanded] = useState(true);
+  const lines = analysis.split("\n");
+
+  return (
+    <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.38 }}
-      className="glass-card rounded-2xl overflow-hidden flex flex-col group"
-      aria-label={`${product.title} — ${formatPrice(product.price)} on ${meta.label}`}
+      className="relative group rounded-2xl overflow-hidden"
     >
-      {/* Image — aspect-square keeps all product types consistent */}
-      <div className="relative aspect-square overflow-hidden bg-white/[0.03]">
-        <img
-          src={imgSrc}
-          alt={truncate(product.title, 60)}
-          className="w-full h-full object-contain p-3 transition-transform duration-500 ease-out group-hover:scale-[1.06]"
-          onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
-          loading="lazy"
-          decoding="async"
-        />
-
-        {/* Platform badge */}
-        <div
-          className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[11px] font-bold leading-none"
-          style={{
-            background: meta.bg,
-            color: meta.color,
-            border: `1px solid ${meta.color}35`,
-          }}
+      {/* Animated Gradient Border Glow */}
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-sky-500 rounded-2xl opacity-30 group-hover:opacity-60 blur-sm transition duration-500" />
+      
+      <div className="relative bg-[#0C0C1E]/80 backdrop-blur-xl border border-white/10 rounded-2xl">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-white/[0.02] transition-colors"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
         >
-          {meta.label}
-        </div>
-
-        {/* Discount badge */}
-        {product.discount != null && product.discount > 0 && (
-          <div
-            className="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold"
-            style={{
-              background: "rgba(5,150,105,0.18)",
-              color: "#34D399",
-              border: "1px solid rgba(52,211,153,0.28)",
-            }}
-          >
-            <TrendingDown className="w-3 h-3" />
-            {product.discount}% off
-          </div>
-        )}
-      </div>
-
-      {/* Card body */}
-      <div className="flex flex-col flex-1 p-4">
-        {/* Title */}
-        <p
-          className="text-sm font-medium leading-snug mb-3 line-clamp-2"
-          style={{ color: "var(--text-primary)" }}
-          title={product.title}
-        >
-          {product.title}
-        </p>
-
-        {/* Price row */}
-        <div className="flex items-baseline gap-2 flex-wrap mb-2">
-          <span className="text-xl font-black gradient-text">{formatPrice(product.price)}</span>
-          {product.original_price && product.original_price > product.price && (
-            <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
-              {formatPrice(product.original_price)}
-            </span>
-          )}
-          {savings && (
-            <span className="text-xs font-semibold" style={{ color: "#34D399" }}>
-              save {formatPrice(savings)}
-            </span>
-          )}
-        </div>
-
-        {/* Rating */}
-        {product.rating != null && (
-          <div className="flex items-center gap-1.5 mb-3">
-            <div className="flex items-center gap-0.5" aria-label={`${product.rating.toFixed(1)} out of 5 stars`}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star
-                  key={s}
-                  className="w-3 h-3"
-                  fill={s <= Math.round(product.rating!) ? "#F59E0B" : "transparent"}
-                  style={{ color: "#F59E0B" }}
-                  aria-hidden="true"
-                />
-              ))}
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+              <Sparkles className="w-5 h-5 text-violet-300" />
             </div>
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              {product.rating.toFixed(1)}
-              {product.reviews ? ` · ${product.reviews.toLocaleString("en-IN")} reviews` : ""}
-            </span>
+            <div>
+              <p className="text-base font-bold text-white flex items-center gap-2">
+                AI Shopping Insight
+                <span className="px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-[10px] font-semibold text-violet-300 uppercase tracking-wider">
+                  Beta
+                </span>
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Analysed <span className="text-white font-medium">{total}</span> products for &ldquo;{query}&rdquo;
+              </p>
+            </div>
           </div>
-        )}
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
 
-        {/* CTA — always white text for legibility */}
-        <a
-          href={product.product_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`View ${truncate(product.title, 45)} on ${meta.label} (opens in new tab)`}
-          className="mt-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-88 hover:scale-[1.015]"
-          style={{
-            background: `${meta.color}20`,
-            border: `1px solid ${meta.color}55`,
-            color: "#fff",
-          }}
-        >
-          View on {meta.label}
-          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-        </a>
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 pb-5 pt-1 space-y-1 border-t border-white/5">
+                {lines.map((line, i) => renderLine(line, i))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </motion.article>
+    </motion.div>
   );
 }
