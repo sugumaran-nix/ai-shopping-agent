@@ -7,10 +7,11 @@ from cachetools import TTLCache
 from typing import List
 import asyncio
 
-from .models import SearchRequest, SearchResponse, Product
-from .config import settings
-from .scrapers import scrape_amazon, scrape_flipkart
-from .ai_analyzer import analyze_products
+# FIXED: Removed the dots for absolute imports
+from models import SearchRequest, SearchResponse, Product
+from config import settings
+from scrapers import scrape_amazon, scrape_flipkart
+from ai_analyzer import analyze_products
 
 app = FastAPI(title="AI Shopping Agent", version="1.0.0")
 
@@ -31,7 +32,7 @@ app.state.limiter = limiter
 async def rate_limit_handler(request, exc):
     raise HTTPException(
         status_code=429,
-        detail=f"Rate limit exceeded. Try again in {exc.detail.split(' ')[-1]}."
+        detail=f"Rate limit exceeded. Try again later."
     )
 
 # Cache for search results (10 minute TTL)
@@ -41,7 +42,7 @@ search_cache = TTLCache(maxsize=100, ttl=settings.cache_ttl_seconds)
 @limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def search_products(request: SearchRequest):
     """Search products across multiple e-commerce sites."""
-    cache_key = f"{request.query}:{','.join(sorted(request.sites))}"
+    cache_key = f"{request.query}:{','.join(sorted([s.value for s in request.sites]))}"
     
     # Check cache first
     if cache_key in search_cache:
@@ -49,11 +50,11 @@ async def search_products(request: SearchRequest):
     
     # Run scrapers concurrently with error handling
     scraper_tasks = []
-    if "amazon" in request.sites:
+    if "amazon" in [s.value for s in request.sites]:
         scraper_tasks.append(scrape_amazon(request.query, request.limit))
-    if "flipkart" in request.sites:
+    if "flipkart" in [s.value for s in request.sites]:
         scraper_tasks.append(scrape_flipkart(request.query, request.limit))
-    # Add meesho and myntra tasks...
+    # Add meesho and myntra tasks here when ready...
     
     results = await asyncio.gather(*scraper_tasks, return_exceptions=True)
     
