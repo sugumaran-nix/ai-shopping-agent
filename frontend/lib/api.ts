@@ -1,12 +1,14 @@
 import { SearchRequest, SearchResponse } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-shopping-agent-dkfm.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-shopping-agent-backend.onrender.com";
 
-export async function searchProducts(request: SearchRequest): Promise<SearchResponse> {
+export async function searchProducts(input: string | SearchRequest): Promise<SearchResponse> {
+  const body: SearchRequest = typeof input === "string" ? { query: input } : input;
+
   const response = await fetch(`${API_BASE}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
