@@ -3,6 +3,6 @@
   "regions": ["bom1"],
   "installCommand": "npm install --legacy-peer-deps",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://ai-shopping-agent-backend.onrender.com"
+    "NEXT_PUBLIC_API_URL": "https://ai-shopping-agent-backend-z0wq.onrender.com"
   }
 }
