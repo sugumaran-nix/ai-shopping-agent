@@ -7,23 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import asyncio
+import httpx
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from scrapers.amazon import scrape_amazon
-from scrapers.flipkart import scrape_flipkart
-from scrapers.meesho import scrape_meesho
-from scrapers.myntra import scrape_myntra
 from agents.gemini import analyze_products
 from models import Product
 from config import settings
+from utils.headers import clean_price, clean_rating, clean_reviews, calculate_discount
 
-app = FastAPI(
-    title="AI Shopping Agent",
-    description="Search products across Amazon, Flipkart, Meesho and Myntra",
-    version="1.0.0",
-)
+app = FastAPI(title="AI Shopping Agent", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +38,146 @@ class SearchResponse(BaseModel):
     products: List[Product]
     ai_analysis: str
 
+# ── Scrapers ────────────────────────────────────────────────────────
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+}
+
+async def scrape_amazon(query: str, client: httpx.AsyncClient) -> List[Product]:
+    products = []
+    try:
+        url = f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+        r = await client.get(url, headers=HEADERS)
+        print(f"[Amazon] status={r.status_code} len={len(r.text)}")
+        if r.status_code != 200: return []
+        soup = BeautifulSoup(r.text, "html.parser")
+        cards = soup.select("div[data-component-type='s-search-result']")
+        print(f"[Amazon] cards={len(cards)}")
+        for item in cards[:8]:
+            try:
+                title = (item.select_one("h2 span") or item.select_one("h2")).get_text(strip=True)
+                link = item.select_one("h2 a")
+                if not link: continue
+                product_url = "https://www.amazon.in" + link["href"]
+                price_el = item.select_one("span.a-price > span.a-offscreen")
+                price = clean_price(price_el.get_text() if price_el else None)
+                if not price: continue
+                img = item.select_one("img.s-image")
+                products.append(Product(title=title, price=price, original_price=None, discount=None,
+                    rating=None, reviews=None, image_url=img["src"] if img else None,
+                    product_url=product_url, site="amazon", available=True))
+            except: pass
+    except Exception as e:
+        print(f"[Amazon] error: {e}")
+    print(f"[Amazon] returning {len(products)}")
+    return products
+
+async def scrape_flipkart(query: str, client: httpx.AsyncClient) -> List[Product]:
+    products = []
+    try:
+        url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+        r = await client.get(url, headers=HEADERS)
+        print(f"[Flipkart] status={r.status_code} len={len(r.text)}")
+        if r.status_code != 200: return []
+        soup = BeautifulSoup(r.text, "html.parser")
+        # Try multiple selectors
+        cards = soup.select("div._1AtVbE") or soup.select("div.tUxRFH") or soup.select("div[data-id]")
+        print(f"[Flipkart] cards={len(cards)}")
+        for item in cards[:10]:
+            try:
+                title_el = item.select_one("div._4rR01T") or item.select_one("a.s1Q9rs") or item.select_one("div.KzDlHZ")
+                if not title_el: continue
+                title = title_el.get_text(strip=True)
+                if len(title) < 5: continue
+                price_el = item.select_one("div._30jeq3") or item.select_one("div.Nx9bqj")
+                price = clean_price(price_el.get_text() if price_el else None)
+                if not price: continue
+                link = item.select_one("a[href]")
+                href = link["href"] if link else ""
+                product_url = f"https://www.flipkart.com{href}" if href.startswith("/") else href
+                img = item.select_one("img._396cs4") or item.select_one("img.DByuf4")
+                products.append(Product(title=title, price=price, original_price=None, discount=None,
+                    rating=None, reviews=None, image_url=img["src"] if img else None,
+                    product_url=product_url, site="flipkart", available=True))
+            except: pass
+    except Exception as e:
+        print(f"[Flipkart] error: {e}")
+    print(f"[Flipkart] returning {len(products)}")
+    return products
+
+async def scrape_meesho(query: str, client: httpx.AsyncClient) -> List[Product]:
+    products = []
+    try:
+        url = "https://www.meesho.com/api/v1/products/search"
+        headers = {**HEADERS, "Content-Type": "application/json", "Accept": "application/json",
+                   "Origin": "https://www.meesho.com"}
+        payload = {"query": query, "page": 1, "pageSize": 8, "filters": [], "facets": {}}
+        r = await client.post(url, json=payload, headers=headers)
+        print(f"[Meesho] status={r.status_code}")
+        if r.status_code != 200: return []
+        data = r.json()
+        items = data.get("products") or data.get("data", {}).get("products", [])
+        for item in items[:8]:
+            try:
+                title = item.get("name") or item.get("product_name", "")
+                if not title: continue
+                price = float(item.get("min_price") or item.get("price") or 0) or None
+                if not price: continue
+                slug = item.get("slug", "")
+                product_url = f"https://www.meesho.com/{slug}" if slug else "https://www.meesho.com"
+                images = item.get("images") or []
+                image_url = images[0].get("url") if images and isinstance(images[0], dict) else None
+                products.append(Product(title=title, price=price, original_price=None, discount=None,
+                    rating=float(item.get("rating") or 0) or None, reviews=None,
+                    image_url=image_url, product_url=product_url, site="meesho", available=True))
+            except: pass
+    except Exception as e:
+        print(f"[Meesho] error: {e}")
+    print(f"[Meesho] returning {len(products)}")
+    return products
+
+async def scrape_myntra(query: str, client: httpx.AsyncClient) -> List[Product]:
+    products = []
+    try:
+        import json, re
+        url = f"https://www.myntra.com/{query.replace(' ', '-')}"
+        r = await client.get(url, headers=HEADERS)
+        print(f"[Myntra] status={r.status_code} len={len(r.text)}")
+        if r.status_code != 200: return []
+        soup = BeautifulSoup(r.text, "html.parser")
+        for script in soup.find_all("script"):
+            text = script.string or ""
+            match = re.search(r'"products"\s*:\s*(\[.*?\])', text, re.DOTALL)
+            if match:
+                try:
+                    items = json.loads(match.group(1))
+                    print(f"[Myntra] json items={len(items)}")
+                    for item in items[:8]:
+                        title = f"{item.get('brand','')} {item.get('product','')}".strip()
+                        if not title: continue
+                        price = float(item.get("price") or 0) or None
+                        if not price: continue
+                        slug = item.get("landingPageUrl", "")
+                        product_url = f"https://www.myntra.com/{slug}" if slug else "https://www.myntra.com"
+                        images = item.get("images") or []
+                        image_url = images[0].get("src") if images and isinstance(images[0], dict) else None
+                        products.append(Product(title=title, price=price, original_price=float(item.get("mrp") or 0) or None,
+                            discount=None, rating=float(item.get("rating") or 0) or None, reviews=None,
+                            image_url=image_url, product_url=product_url, site="myntra", available=True))
+                except Exception as e:
+                    print(f"[Myntra] json error: {e}")
+                break
+    except Exception as e:
+        print(f"[Myntra] error: {e}")
+    print(f"[Myntra] returning {len(products)}")
+    return products
+
+# ── Routes ──────────────────────────────────────────────────────────
+
 @app.get("/")
 async def root():
     return {"message": "AI Shopping Agent API is running"}
@@ -51,6 +186,19 @@ async def root():
 async def health():
     return {"status": "ok"}
 
+@app.get("/test-scrape")
+async def test_scrape(q: str = "iphone"):
+    """Debug endpoint to see raw scraper output."""
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        amazon = await scrape_amazon(q, client)
+        flipkart = await scrape_flipkart(q, client)
+    return {
+        "amazon": len(amazon),
+        "flipkart": len(flipkart),
+        "amazon_sample": amazon[0].dict() if amazon else None,
+        "flipkart_sample": flipkart[0].dict() if flipkart else None,
+    }
+
 @app.post("/search", response_model=SearchResponse)
 async def search(request: SearchRequest):
     if not request.query or len(request.query.strip()) < 2:
@@ -58,26 +206,25 @@ async def search(request: SearchRequest):
 
     query = request.query.strip()
     sites = request.sites or ["amazon", "flipkart", "meesho", "myntra"]
+    print(f"[Search] query='{query}' sites={sites}")
 
-    scraper_map = {
-        "amazon": scrape_amazon,
-        "flipkart": scrape_flipkart,
-        "meesho": scrape_meesho,
-        "myntra": scrape_myntra,
-    }
-
-    tasks = [scraper_map[site](query) for site in sites if site in scraper_map]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        tasks = []
+        if "amazon"   in sites: tasks.append(scrape_amazon(query, client))
+        if "flipkart" in sites: tasks.append(scrape_flipkart(query, client))
+        if "meesho"   in sites: tasks.append(scrape_meesho(query, client))
+        if "myntra"   in sites: tasks.append(scrape_myntra(query, client))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_products = []
     for result in results:
-        if isinstance(result, Exception):
-            print(f"[Search] Scraper error: {result}")
-            continue
         if isinstance(result, list):
             all_products.extend(result)
+        elif isinstance(result, Exception):
+            print(f"[Search] scraper exception: {result}")
 
-    all_products.sort(key=lambda p: p.price if p.price is not None else float('inf'))
+    all_products.sort(key=lambda p: p.price if p.price else float("inf"))
+    print(f"[Search] total products: {len(all_products)}")
 
     ai_analysis = await analyze_products(query, all_products)
 
