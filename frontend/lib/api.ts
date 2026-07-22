@@ -1,6 +1,6 @@
 import { SearchRequest, SearchResponse } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-shopping-agent-backend.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-shopping-agent-backend-z0wq.onrender.com";
 
 export async function searchProducts(input: string | SearchRequest): Promise<SearchResponse> {
   const body: SearchRequest = typeof input === "string" ? { query: input } : input;
