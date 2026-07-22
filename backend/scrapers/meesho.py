@@ -1,73 +1,61 @@
 import httpx
-from bs4 import BeautifulSoup
+import json
 from typing import List
-import os
-
 from models import Product
-from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
+from utils.headers import clean_price, calculate_discount
 
-SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
-SCRAPER_API_URL = "http://api.scraperapi.com"
-
-def build_url(query: str) -> str:
-    query_formatted = query.replace(" ", "%20")
-    return f"https://www.meesho.com/search?q={query_formatted}"
+def build_api_url(query: str) -> str:
+    return "https://www.meesho.com/api/v1/products/search"
 
 async def scrape_meesho(query: str) -> List[Product]:
-    target_url = build_url(query)
-    params = {
-        "api_key": SCRAPER_API_KEY,
-        "url": target_url,
-        "country_code": "in",
-        "device_type": "desktop",
-        "render": "true",
-    }
     products = []
     try:
-        async with httpx.AsyncClient(timeout=40.0) as client:
-            response = await client.get(SCRAPER_API_URL, params=params, headers=get_headers())
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Origin": "https://www.meesho.com",
+            "Referer": f"https://www.meesho.com/search?q={query.replace(' ', '%20')}",
+        }
+        payload = {
+            "query": query,
+            "page": 1,
+            "pageSize": 8,
+            "filters": [],
+            "facets": {},
+            "searchType": "manual",
+        }
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            response = await client.post(build_api_url(query), json=payload, headers=headers)
             if response.status_code != 200:
-                print(f"[Meesho] ScraperAPI returned {response.status_code}")
+                print(f"[Meesho] API status {response.status_code}")
                 return []
-            soup = BeautifulSoup(response.text, "lxml")
-            results = soup.select("div.NewProductCardstyled__CardWrapper-sc-6y2tys-0")
-            if not results:
-                results = soup.select("div[class*='CardWrapper']")
-            for item in results[:8]:
+            data = response.json()
+            items = data.get("products", []) or data.get("data", {}).get("products", [])
+            for item in items[:8]:
                 try:
-                    title_tag = item.select_one("p[class*='ProductTitle']") or item.select_one("p.NewProductCardstyled__ProductTitle")
-                    if not title_tag:
-                        continue
-                    title = title_tag.get_text(strip=True)
-                    link_tag = item.select_one("a")
-                    if not link_tag:
-                        continue
-                    href = link_tag.get("href", "")
-                    product_url = f"https://www.meesho.com{href}" if href.startswith("/") else href
-                    price_tag = item.select_one("h5[class*='Price']") or item.select_one("h5")
-                    price = clean_price(price_tag.get_text() if price_tag else None)
-                    if not price:
-                        continue
-                    original_tag = item.select_one("h6[class*='Price']") or item.select_one("h6")
-                    original_price = clean_price(original_tag.get_text() if original_tag else None)
+                    title = item.get("name") or item.get("product_name", "")
+                    if not title: continue
+                    price_raw = item.get("min_price") or item.get("price") or item.get("selling_price")
+                    price = float(price_raw) if price_raw else None
+                    if not price: continue
+                    original_raw = item.get("mrp") or item.get("max_price")
+                    original_price = float(original_raw) if original_raw else None
                     discount = calculate_discount(price, original_price) if original_price else None
-                    rating_tag = item.select_one("span[class*='rating']") or item.select_one("p[class*='Rating']")
-                    rating = clean_rating(rating_tag.get_text() if rating_tag else None)
-                    reviews_tag = item.select_one("span[class*='review']") or item.select_one("p[class*='Review']")
-                    reviews = clean_reviews(reviews_tag.get_text() if reviews_tag else None)
-                    img_tag = item.select_one("img")
-                    image_url = img_tag.get("src") if img_tag else None
+                    rating = float(item.get("rating", 0) or 0) or None
+                    slug = item.get("slug") or ""
+                    product_url = f"https://www.meesho.com/{slug}" if slug else "https://www.meesho.com"
+                    images = item.get("images") or []
+                    image_url = images[0].get("url") if images and isinstance(images[0], dict) else (images[0] if images else None)
                     products.append(Product(
                         title=title, price=price, original_price=original_price,
-                        discount=discount, rating=rating, reviews=reviews,
+                        discount=discount, rating=rating, reviews=None,
                         image_url=image_url, product_url=product_url,
                         site="meesho", available=True,
                     ))
                 except Exception as e:
-                    print(f"[Meesho] Error parsing product: {e}")
-                    continue
+                    print(f"[Meesho] Parse error: {e}")
     except Exception as e:
         print(f"[Meesho] Request failed: {e}")
-        return []
     print(f"[Meesho] Found {len(products)} products")
     return products
