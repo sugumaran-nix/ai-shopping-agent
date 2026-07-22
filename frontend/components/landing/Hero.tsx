@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Search, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
-import gsap from "gsap";
 
 const MARQUEE_ITEMS = [
   { src: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=280&h=220&fit=crop&q=80", alt: "Watch" },
@@ -30,34 +29,14 @@ const QUICK_SEARCHES = [
   "boAt headphones", "Nike shoes", "Samsung Galaxy", "Formal shirt under ₹999", "Laptop bag",
 ];
 
+// Duplicate for seamless loop
 const ALL_IMAGES = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
 export default function Hero() {
-  const trackRef  = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLInputElement>(null);
-  const [idx,    setIdx]    = useState(0);
-  const [query,  setQuery]  = useState("");
-  const [going,  setGoing]  = useState(false);
-
-  // GSAP marquee
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const W      = 200 + 12; // item width + gap
-    const oneSet = MARQUEE_ITEMS.length * W;
-    const ctx = gsap.context(() => {
-      gsap.to(track, {
-        x: `-=${oneSet}`,
-        duration: oneSet / 75,
-        ease: "none",
-        repeat: -1,
-        modifiers: {
-          x: (x) => `${gsap.utils.wrap(-oneSet, 0, parseFloat(x))}px`,
-        },
-      });
-    });
-    return () => ctx.revert();
-  }, []);
+  const [idx,   setIdx]   = useState(0);
+  const [query, setQuery] = useState("");
+  const [going, setGoing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Platform flip
   useEffect(() => {
@@ -77,7 +56,7 @@ export default function Hero() {
   return (
     <section className="relative flex flex-col items-center justify-center overflow-hidden pt-28 pb-20 min-h-screen">
 
-      {/* ── Marquee strip — in flow so it doesn't collide with content ─── */}
+      {/* CSS marquee strip */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -87,9 +66,11 @@ export default function Hero() {
         aria-hidden="true"
       >
         <div
-          ref={trackRef}
-          className="flex gap-3 absolute top-0 left-0"
-          style={{ willChange: "transform" }}
+          className="flex gap-3"
+          style={{
+            width: "max-content",
+            animation: "marquee 28s linear infinite",
+          }}
         >
           {ALL_IMAGES.map((img, i) => (
             <div
@@ -112,7 +93,7 @@ export default function Hero() {
           style={{ background: "linear-gradient(to left, var(--color-black), transparent)" }} />
       </motion.div>
 
-      {/* ── Hero content ─────────────────────────────────────────────── */}
+      {/* Hero content */}
       <div className="relative z-10 flex flex-col items-center text-center px-4 w-full max-w-4xl mx-auto">
 
         {/* Trust badge */}
@@ -135,7 +116,6 @@ export default function Hero() {
         >
           <span style={{ color: "var(--text-primary)" }}>Compare prices across</span>
           <br />
-          {/* Platform flip */}
           <span
             style={{
               display: "inline-block",
@@ -200,11 +180,7 @@ export default function Hero() {
                 autoComplete="off"
               />
             </div>
-            <button
-              type="submit"
-              disabled={going}
-              className="btn-primary shrink-0"
-            >
+            <button type="submit" disabled={going} className="btn-primary shrink-0">
               {going ? (
                 <div className="w-4 h-4 border-2 border-white/25 border-t-white rounded-full animate-spin" aria-hidden="true" />
               ) : (
@@ -248,8 +224,8 @@ export default function Hero() {
           className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
         >
           {[
-            { icon: Shield, text: "No account needed" },
-            { icon: Zap,    text: "Results in under 5s" },
+            { icon: Shield,   text: "No account needed" },
+            { icon: Zap,      text: "Results in under 5s" },
             { icon: Sparkles, text: "Gemini 2.0 Flash" },
           ].map(({ icon: Icon, text }) => (
             <div key={text} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -259,6 +235,13 @@ export default function Hero() {
           ))}
         </motion.div>
       </div>
+
+      <style jsx>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
     </section>
   );
 }
