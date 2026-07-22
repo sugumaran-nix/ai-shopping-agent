@@ -1,7 +1,9 @@
 import google.generativeai as genai
 from typing import List
-from .models import Product
-from .config import settings
+
+# FIXED: Removed the dots
+from models import Product
+from config import settings
 
 genai.configure(api_key=settings.gemini_api_key)
 
