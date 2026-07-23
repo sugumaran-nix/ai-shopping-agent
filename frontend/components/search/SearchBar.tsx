@@ -1,119 +1,185 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, X, SlidersHorizontal } from "lucide-react";
+import { SITE_META } from "@/lib/api";
 
-const STATS = [
-  {
-    value: 4,
-    suffix: "",
-    label: "Platforms searched at once",
-    sub: "Amazon · Flipkart · Meesho · Myntra",
-  },
-  {
-    value: 5,
-    suffix: "s",
-    label: "Avg. time to results",
-    sub: "Parallel async scraping",
-  },
-  {
-    value: 100,
-    suffix: "%",
-    label: "Free, always",
-    sub: "No account. No hidden fees.",
-  },
-  {
-    // Fixed: "2.0" was confusing (looked like a score, was actually a model version).
-    // Changed to a countable stat that makes sense in context.
-    value: 20,
-    suffix: "+",
-    label: "Products compared per search",
-    sub: "Scraped live, never cached",
-  },
-];
+const SITES = ["amazon", "flipkart", "meesho", "myntra"] as const;
 
-function Counter({ to, suffix, duration = 1.6 }: { to: number; suffix: string; duration?: number }) {
-  const [val, setVal] = useState(0);
-  const ref    = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  // Store the RAF id so we can cancel it on unmount, preventing a memory leak
-  const rafRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    let start: number | null = null;
-
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const p    = Math.min((ts - start) / (duration * 1000), 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setVal(parseFloat((to * ease).toFixed(to % 1 !== 0 ? 1 : 0)));
-      if (p < 1) {
-        rafRef.current = requestAnimationFrame(step);
-      } else {
-        setVal(to);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(step);
-    // Fixed: cancel the RAF on unmount to prevent state updates on unmounted component
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [inView, to, duration]);
-
-  return <span ref={ref}>{val}{suffix}</span>;
+interface SearchBarProps {
+  onSearch: (query: string, sites: string[]) => void;
+  loading: boolean;
+  defaultQuery?: string;
 }
 
-export default function StatsBar() {
-  return (
-    <section aria-label="Key statistics" className="py-12 px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.55 }}
-        className="glass max-w-5xl mx-auto rounded-2xl overflow-hidden"
-        style={{ border: "1px solid rgba(109,40,217,0.2)" }}
-      >
-        <div className="grid grid-cols-2 md:grid-cols-4">
-          {STATS.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              className="flex flex-col items-center justify-center py-8 px-5 text-center relative"
-            >
-              {/* Vertical dividers on desktop */}
-              {i > 0 && (
-                <div
-                  className="hidden md:block absolute left-0 top-1/4 bottom-1/4 w-px"
-                  aria-hidden="true"
-                  style={{ background: "rgba(109,40,217,0.18)" }}
-                />
-              )}
-              {/* Horizontal divider between top row and bottom row on mobile */}
-              {i >= 2 && (
-                <div
-                  className="md:hidden absolute top-0 inset-x-4 h-px"
-                  aria-hidden="true"
-                  style={{ background: "rgba(109,40,217,0.18)" }}
-                />
-              )}
+export default function SearchBar({ onSearch, loading, defaultQuery = "" }: SearchBarProps) {
+  const [query,         setQuery]         = useState(defaultQuery);
+  const [selectedSites, setSelectedSites] = useState<string[]>([...SITES]);
+  const [showFilters,   setShowFilters]   = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-              <span className="text-4xl font-black mb-1 gradient-text tabular-nums" aria-label={`${stat.value}${stat.suffix}`}>
-                <Counter to={stat.value} suffix={stat.suffix} />
-              </span>
-              <span className="text-sm font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>
-                {stat.label}
-              </span>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {stat.sub}
-              </span>
-            </motion.div>
-          ))}
+  const allSelected = selectedSites.length === SITES.length;
+
+  const toggleSite = (site: string) => {
+    setSelectedSites((prev) =>
+      prev.includes(site)
+        ? prev.length > 1 ? prev.filter((s) => s !== site) : prev
+        : [...prev, site]
+    );
+  };
+
+  const clear = () => {
+    setQuery("");
+    inputRef.current?.focus();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim().length >= 2) {
+      onSearch(query.trim(), selectedSites);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} role="search" aria-label="Product search">
+        <div className="group relative glass rounded-2xl p-1.5 flex gap-1.5 transition-all duration-300 search-sweep focus-within:ring-2 focus-within:ring-violet-500/30 focus-within:border-violet-500/40">
+          <label htmlFor="search-input" className="sr-only">Search for a product</label>
+
+          <div className="flex-1 flex items-center gap-3 px-3 min-w-0 relative z-10">
+            <Search
+              className="w-4 h-4 shrink-0 text-gray-500 group-focus-within:text-violet-400 transition-colors"
+              aria-hidden="true"
+            />
+            <input
+              ref={inputRef}
+              id="search-input"
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder='Search any product — "iPhone 15" or "kurta under ₹500"'
+              className="flex-1 min-w-0 bg-transparent outline-none placeholder:text-gray-600 text-white"
+              style={{ fontSize: "1rem" }}
+              minLength={2}
+              required
+              // autoFocus REMOVED: unconditional autoFocus pops the mobile keyboard
+              // immediately on /search page load, covering the viewport before results arrive.
+              // The Hero input handles focus for the landing page separately.
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <AnimatePresence>
+              {query && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  type="button"
+                  onClick={clear}
+                  className="p-1.5 rounded-full hover:bg-white/10 shrink-0 text-gray-500 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className={`p-2.5 rounded-xl transition-all shrink-0 relative z-10 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+              showFilters
+                ? "bg-violet-500/15 text-violet-300"
+                : "hover:bg-white/5 text-gray-400 hover:text-white"
+            }`}
+            aria-label={showFilters ? "Hide platform filters" : "Show platform filters"}
+            aria-expanded={showFilters}
+          >
+            <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+            {!allSelected && !showFilters && (
+              <span
+                className="absolute top-2 right-2 w-2 h-2 rounded-full bg-violet-500 ring-2 ring-[#0C0C1E]"
+                aria-label="Some platforms are filtered"
+              />
+            )}
+          </button>
+
+          <button
+            type="submit"
+            disabled={loading || query.trim().length < 2}
+            className="btn-primary shrink-0 py-2.5 px-4 sm:px-6 text-sm relative z-10 min-h-[44px]"
+            aria-label={loading ? "Searching…" : "Search"}
+          >
+            {loading ? (
+              <>
+                <div
+                  className="w-4 h-4 border-2 border-white/25 border-t-white rounded-full animate-spin"
+                  aria-hidden="true"
+                />
+                {/* Hidden on very small screens to prevent button overflow at 320px */}
+                <span className="hidden sm:inline">Searching…</span>
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Search</span>
+              </>
+            )}
+          </button>
         </div>
-      </motion.div>
-    </section>
+
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 glass rounded-xl px-4 py-3 flex flex-wrap items-center gap-2.5 border border-white/5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1">
+                  Stores:
+                </span>
+                {SITES.map((site) => {
+                  const active = selectedSites.includes(site);
+                  const m      = SITE_META[site];
+                  return (
+                    <motion.button
+                      key={site}
+                      type="button"
+                      onClick={() => toggleSite(site)}
+                      whileTap={{ scale: 0.95 }}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 min-h-[36px] ${
+                        active ? "shadow-lg" : "hover:bg-white/5"
+                      }`}
+                      style={{
+                        background: active ? `${m.color}20` : "transparent",
+                        border: `1px solid ${active ? m.color + "60" : "rgba(255,255,255,0.08)"}`,
+                        color: active ? m.color : "var(--text-secondary)",
+                      }}
+                      aria-pressed={active}
+                    >
+                      {m.label}
+                    </motion.button>
+                  );
+                })}
+                {!allSelected && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSites([...SITES])}
+                    className="text-xs font-medium text-violet-400 hover:text-violet-300 underline underline-offset-4 ml-auto transition-colors"
+                  >
+                    Select all
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </form>
+    </div>
   );
 }
