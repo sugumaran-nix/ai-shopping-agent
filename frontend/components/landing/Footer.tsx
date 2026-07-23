@@ -4,14 +4,16 @@ import Link from "next/link";
 import { Zap, Github, ExternalLink } from "lucide-react";
 
 const NAV_LINKS = [
-  { label: "Home",     href: "/" },
-  { label: "Search",   href: "/search" },
-  { label: "Features", href: "/#features" },
-  { label: "How it works", href: "/#howitworks" },
+  { label: "Home",         href: "/" },
+  { label: "Search",       href: "/search" },
+  { label: "Features",     href: "/#features" },
+  // Fixed: was "/#howitworks" (old ID) — matches the fixed id="how-it-works" in HowItWorks.tsx
+  { label: "How it works", href: "/#how-it-works" },
 ];
 
 const EXT_LINKS = [
-  { label: "API Docs", href: "https://ai-shopping-agent-dkfm.onrender.com/docs" },
+  // Updated to match the actual API_BASE URL used in lib/api.ts
+  { label: "API Docs", href: "https://ai-shopping-agent-backend-z0wq.onrender.com/docs" },
   { label: "GitHub",   href: "https://github.com/sugumaran-nix/ai-shopping-agent" },
 ];
 
@@ -33,7 +35,7 @@ export default function Footer() {
                 className="w-8 h-8 rounded-[10px] flex items-center justify-center"
                 style={{ background: "var(--gradient-brand)" }}
               >
-                <Zap className="w-4 h-4 text-white" />
+                <Zap className="w-4 h-4 text-white" aria-hidden="true" />
               </div>
               <span className="font-extrabold text-lg tracking-tight">
                 <span className="gradient-text">Shop</span>
@@ -68,13 +70,8 @@ export default function Footer() {
             <ul className="space-y-2.5">
               {NAV_LINKS.map((l) => (
                 <li key={l.href}>
-                  <Link
-                    href={l.href}
-                    className="text-sm transition-colors"
-                    style={{ color: "var(--text-secondary)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
-                  >
+                  {/* nav-link class handles both hover and :focus-visible color change */}
+                  <Link href={l.href} className="nav-link text-sm">
                     {l.label}
                   </Link>
                 </li>
@@ -90,16 +87,17 @@ export default function Footer() {
             <ul className="space-y-2.5">
               {EXT_LINKS.map((l) => (
                 <li key={l.href}>
-                  <a
+                  
                     href={l.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm transition-colors"
-                    style={{ color: "var(--text-secondary)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+                    className="nav-link flex items-center gap-1.5 text-sm"
+                    aria-label={`${l.label} (opens in new tab)`}
                   >
-                    {l.label === "GitHub" ? <Github className="w-3.5 h-3.5" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                    {l.label === "GitHub"
+                      ? <Github className="w-3.5 h-3.5" aria-hidden="true" />
+                      : <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                    }
                     {l.label}
                   </a>
                 </li>
@@ -115,11 +113,12 @@ export default function Footer() {
         >
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             © {new Date().getFullYear()} Shopiq. Built by{" "}
-            <a
+            
               href="https://github.com/sugumaran-nix"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-[var(--text-secondary)] transition-colors"
+              className="nav-link inline"
+              aria-label="Sugumaran's GitHub (opens in new tab)"
             >
               Sugumaran
             </a>
