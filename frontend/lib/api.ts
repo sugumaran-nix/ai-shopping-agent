@@ -29,8 +29,8 @@ export async function healthCheck(): Promise<boolean> {
 }
 
 export const SITE_META: Record<string, { label: string; color: string; bg: string }> = {
-  amazon:   { label: "Amazon",   color: "#FF9900", bg: "rgba(255,153,0,0.12)"   },
-  flipkart: { label: "Flipkart", color: "#2874F0", bg: "rgba(40,116,240,0.12)"  },
-  meesho:   { label: "Meesho",   color: "#F43397", bg: "rgba(244,51,151,0.12)"  },
-  myntra:   { label: "Myntra",   color: "#FF3F6C", bg: "rgba(255,63,108,0.12)"  },
+  amazon:   { label: "Amazon",   color: "#FF9900", bg: "rgba(255,153,0,0.12)"  },
+  flipkart: { label: "Flipkart", color: "#2874F0", bg: "rgba(40,116,240,0.12)" },
+  meesho:   { label: "Meesho",   color: "#F43397", bg: "rgba(244,51,151,0.12)" },
+  myntra:   { label: "Myntra",   color: "#FF3F6C", bg: "rgba(255,63,108,0.12)" },
 };
