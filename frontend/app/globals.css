@@ -1,8 +1,11 @@
+/* Google Fonts @import REMOVED — font is now loaded via next/font/google in layout.tsx.
+   next/font handles subsetting, font-display:swap, and preloading with zero render-blocking. */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS Variables ─────────────────────────────────────────────── */
+/* ── CSS Variables ────────────────────────────────────────────── */
 :root {
   --color-black:      #06060F;
   --color-surface:    #0C0C1E;
@@ -15,15 +18,20 @@
   --accent-violet:    #7C3AED;
   --accent-indigo:    #4F46E5;
   --accent-sky:       #0EA5E9;
+  --accent-emerald:   #10B981;
 
   --glass-bg:         rgba(255, 255, 255, 0.04);
   --glass-border:     rgba(255, 255, 255, 0.08);
+
+  --gradient-cosmic:  linear-gradient(135deg, #A78BFA, #818CF8, #38BDF8);
+  --gradient-brand:   linear-gradient(135deg, #7C3AED, #4F46E5);
+
+  --shadow-card:      0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow:      0 0 40px rgba(124, 58, 237, 0.15);
 }
 
-/* ── Base ──────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
+/* ── Base Reset ───────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -36,21 +44,21 @@ html {
 }
 
 body {
+  /* --font-inter is injected by next/font on <html> via the inter.variable class */
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   background-color: var(--color-black);
   color: var(--text-primary);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100dvh;
+  overflow-x: hidden;
 }
 
-/* ── Scene backgrounds ─────────────────────────────────────────── */
+/* ── Scene backgrounds ────────────────────────────────────────── */
 .scene-bg {
   position: fixed;
   inset: 0;
   z-index: -3;
-  background: radial-gradient(ellipse 80% 60% at 50% -10%,
-    rgba(109, 40, 217, 0.18) 0%,
-    transparent 70%),
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.2) 0%, transparent 70%),
     var(--color-black);
 }
 
@@ -59,8 +67,8 @@ body {
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(ellipse 40% 40% at 15% 60%, rgba(79, 70, 229, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 85% 40%, rgba(14, 165, 233, 0.06) 0%, transparent 70%);
+    radial-gradient(ellipse 40% 40% at 15% 60%, rgba(79, 70, 229, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 85% 40%, rgba(14, 165, 233, 0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -69,20 +77,21 @@ body {
   inset: 0;
   z-index: -1;
   background-image:
-    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.2) 0%, transparent 100%);
+    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 65%, rgba(255,255,255,0.20) 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 55%, rgba(255,255,255,0.18) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 90%, rgba(255,255,255,0.15) 0%, transparent 100%);
   pointer-events: none;
 }
 
-/* ── Glass components ──────────────────────────────────────────── */
+/* ── Glass ────────────────────────────────────────────────────── */
 .glass {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .glass-card {
@@ -90,14 +99,20 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* ── Buttons ───────────────────────────────────────────────────── */
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.55rem 1.1rem;
+  padding: 0.55rem 1.2rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -105,46 +120,112 @@ body {
   background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
   border: none;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
   white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.35);
+  text-decoration: none;
 }
 
 .btn-primary:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
 }
 
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-decoration: none;
 }
 
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-ghost:hover,
+.btn-ghost:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
-/* ── Pills / badges ────────────────────────────────────────────── */
+/* ── Nav link interactive state (keyboard + hover) ────────────── */
+/*
+  Replaces the onMouseEnter/onMouseLeave inline JS in Navbar and Footer.
+  Both hover AND :focus-visible get the same color change, so keyboard
+  users see the same feedback as mouse users.
+*/
+.nav-link {
+  color: var(--text-secondary);
+  transition: color 0.15s;
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: var(--text-primary);
+}
+
+.nav-link[aria-current="page"] {
+  color: var(--text-primary);
+  position: relative;
+}
+
+.nav-link[aria-current="page"]::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--gradient-brand);
+}
+
+/* ── Pills / Badges ───────────────────────────────────────────── */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.3rem 0.85rem;
+  padding: 0.28rem 0.8rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
 }
 
 .pill-violet {
-  background: rgba(109, 40, 217, 0.12);
-  border: 1px solid rgba(109, 40, 217, 0.28);
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.28);
   color: #C4B5FD;
 }
 
-/* ── Typography ────────────────────────────────────────────────── */
+.pill-green {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #6EE7B7;
+}
+
+/* ── Typography ───────────────────────────────────────────────── */
 .display-xl {
   font-size: clamp(2.2rem, 6vw, 4rem);
   font-weight: 800;
   line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+
+.display-lg {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.15;
   letter-spacing: -0.02em;
 }
 
@@ -152,21 +233,88 @@ body {
   font-size: clamp(1.4rem, 3vw, 2rem);
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #A78BFA, #818CF8, #38BDF8);
+  background: var(--gradient-cosmic);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* ── Utilities ─────────────────────────────────────────────────── */
-.focus-ring-violet:focus-within {
-  box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.15), 0 0 0 4px rgba(109, 40, 217, 0.05);
+/* ── Skeleton ─────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
 }
 
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ── Search bar focus sweep ── differentiator ─────────────────── */
+@keyframes sweepLeft {
+  from { transform: translateX(-200%); opacity: 1; }
+  to   { transform: translateX(500%);  opacity: 0; }
+}
+
+.search-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.search-sweep::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 28%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(124, 58, 237, 0.22),
+    rgba(99, 102, 241, 0.18),
+    rgba(14, 165, 233, 0.12),
+    transparent
+  );
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.search-sweep:focus-within::before {
+  animation: sweepLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Marquee ──────────────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── Section divider ──────────────────────────────────────────── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(124, 58, 237, 0.3),
+    rgba(14, 165, 233, 0.2),
+    transparent
+  );
+}
+
+/* ── Utilities ────────────────────────────────────────────────── */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -174,20 +322,43 @@ body {
   overflow: hidden;
 }
 
-.text-gradient-price {
-  background: linear-gradient(to right, #ffffff, #a5b4fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Focus ────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.6);
+  outline-offset: 2px;
 }
 
-/* ── Marquee animation ─────────────────────────────────────────── */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-12px); }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────── */
+/*
+  Covers CSS animations/transitions. Framer Motion is handled globally via
+  <MotionConfig reducedMotion="user"> in MotionProvider.tsx.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
