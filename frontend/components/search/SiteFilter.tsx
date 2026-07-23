@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { SITE_META } from "@/lib/api";
 
 interface SiteFilterProps {
@@ -9,44 +10,52 @@ interface SiteFilterProps {
   total: number;
 }
 
-const SITES = ["all", "amazon", "flipkart", "meesho", "myntra"];
+const SITES = ["amazon", "flipkart", "meesho", "myntra"];
 
 export default function SiteFilter({ selected, onChange, counts, total }: SiteFilterProps) {
-  return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by platform">
-      {SITES.map((site) => {
-        const isActive = selected === site;
-        const meta     = site === "all" ? null : SITE_META[site];
-        const count    = site === "all" ? total : (counts[site] ?? 0);
-        const color    = meta?.color ?? "var(--accent-violet)";
-        const label    = meta?.label ?? "All";
+  const tabs = [
+    { key: "all", label: "All", count: total, color: "#A78BFA", bg: "rgba(167,139,250,0.12)" },
+    ...SITES
+      .filter((s) => counts[s] > 0)
+      .map((s) => ({
+        key: s,
+        label: SITE_META[s]?.label ?? s,
+        count: counts[s] ?? 0,
+        color: SITE_META[s]?.color ?? "#888",
+        bg: SITE_META[s]?.bg ?? "rgba(136,136,136,0.12)",
+      })),
+  ];
 
+  return (
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter by store">
+      {tabs.map((tab) => {
+        const active = selected === tab.key;
         return (
-          <button
-            key={site}
+          <motion.button
+            key={tab.key}
             type="button"
-            onClick={() => onChange(site)}
-            aria-pressed={isActive}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.key)}
+            whileTap={{ scale: 0.96 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200"
             style={{
-              background: isActive ? `${color}20` : "rgba(255,255,255,0.04)",
-              border: `1px solid ${isActive ? color + "55" : "rgba(255,255,255,0.08)"}`,
-              color: isActive ? color : "var(--text-secondary)",
+              background: active ? tab.bg : "transparent",
+              border: `1px solid ${active ? tab.color + "50" : "rgba(255,255,255,0.08)"}`,
+              color: active ? tab.color : "var(--text-muted)",
             }}
           >
-            {label}
-            {count > 0 && (
-              <span
-                className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={{
-                  background: isActive ? `${color}25` : "rgba(255,255,255,0.06)",
-                  color: isActive ? color : "var(--text-muted)",
-                }}
-              >
-                {count}
-              </span>
-            )}
-          </button>
+            {tab.label}
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{
+                background: active ? `${tab.color}25` : "rgba(255,255,255,0.06)",
+                color: active ? tab.color : "var(--text-muted)",
+              }}
+            >
+              {tab.count}
+            </span>
+          </motion.button>
         );
       })}
     </div>
