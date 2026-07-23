@@ -1,14 +1,31 @@
 import { SearchRequest, SearchResponse } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-shopping-agent-backend-z0wq.onrender.com";
+// WARNING: This URL is a hardcoded fallback. Set NEXT_PUBLIC_API_URL in your
+// Vercel environment variables so you can change backends without a code deploy.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://ai-shopping-agent-backend-z0wq.onrender.com";
 
-export async function searchProducts(input: string | SearchRequest): Promise<SearchResponse> {
-  const body: SearchRequest = typeof input === "string" ? { query: input } : input;
+/**
+ * Searches for products across platforms.
+ *
+ * @param input  - Query string or full SearchRequest object.
+ * @param signal - Optional AbortSignal from an AbortController.
+ *                 Pass this to cancel the request when a new search starts,
+ *                 preventing stale results from overwriting fresher ones.
+ */
+export async function searchProducts(
+  input: string | SearchRequest,
+  signal?: AbortSignal
+): Promise<SearchResponse> {
+  const body: SearchRequest =
+    typeof input === "string" ? { query: input } : input;
 
   const response = await fetch(`${API_BASE}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal, // Passed through so the caller can abort
   });
 
   if (!response.ok) {
@@ -19,6 +36,11 @@ export async function searchProducts(input: string | SearchRequest): Promise<Sea
   return response.json();
 }
 
+/**
+ * Pings the backend health endpoint.
+ * Use this to detect cold-start delays on Render free tier:
+ * fire this on page load and show a "warming up" message if it takes >3s.
+ */
 export async function healthCheck(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`, { cache: "no-store" });
