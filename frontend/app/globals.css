@@ -1,364 +1,183 @@
-/* Google Fonts @import REMOVED — font is now loaded via next/font/google in layout.tsx.
-   next/font handles subsetting, font-display:swap, and preloading with zero render-blocking. */
+"use client";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Zap, Menu, X, Github, Search } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-/* ── CSS Variables ────────────────────────────────────────────── */
-:root {
-  --color-black:      #06060F;
-  --color-surface:    #0C0C1E;
-  --color-surface-2:  #10102A;
+const NAV_LINKS = [
+  { label: "Home",         href: "/" },
+  // Fixed: was "/?focus=1" which did nothing on the landing page
+  { label: "Search",       href: "/search" },
+  { label: "Features",     href: "/#features" },
+  { label: "How it works", href: "/#how-it-works" },
+];
 
-  --text-primary:     #F0F0FF;
-  --text-secondary:   #A0A0C0;
-  --text-muted:       #606080;
+export default function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
 
-  --accent-violet:    #7C3AED;
-  --accent-indigo:    #4F46E5;
-  --accent-sky:       #0EA5E9;
-  --accent-emerald:   #10B981;
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  --glass-bg:         rgba(255, 255, 255, 0.04);
-  --glass-border:     rgba(255, 255, 255, 0.08);
+  useEffect(() => setMenuOpen(false), [pathname]);
 
-  --gradient-cosmic:  linear-gradient(135deg, #A78BFA, #818CF8, #38BDF8);
-  --gradient-brand:   linear-gradient(135deg, #7C3AED, #4F46E5);
+  // A link is "current" if its pathname matches exactly,
+  // or if the hash link's base path matches and we're on the landing page.
+  const isCurrent = (href: string) => {
+    if (href === "/") return pathname === "/";
+    if (href.startsWith("/#")) return pathname === "/";
+    return pathname.startsWith(href);
+  };
 
-  --shadow-card:      0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-glow:      0 0 40px rgba(124, 58, 237, 0.15);
-}
+  return (
+    <>
+      <header
+        className="fixed top-0 inset-x-0 z-50 transition-all duration-300"
+        style={{
+          background: scrolled ? "rgba(6,6,15,0.85)" : "rgba(6,6,15,0.4)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: scrolled
+            ? "1px solid rgba(255,255,255,0.07)"
+            : "1px solid transparent",
+        }}
+      >
+        <nav
+          className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between"
+          aria-label="Main navigation"
+        >
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group" aria-label="Shopiq home">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110"
+              style={{ background: "linear-gradient(135deg, #7C3AED, #4F46E5)" }}
+            >
+              <Zap className="w-4 h-4 text-white" aria-hidden="true" />
+            </div>
+            <span className="font-bold text-base tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Shopiq
+            </span>
+          </Link>
 
-/* ── Base Reset ───────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+          {/* Desktop links */}
+          {/* nav-link class handles hover + focus-visible + aria-current styling via CSS */}
+          <div className="hidden md:flex items-center gap-1" role="list">
+            {NAV_LINKS.map((link) => {
+              const current = isCurrent(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  role="listitem"
+                  className="nav-link px-3 py-1.5 rounded-lg text-sm font-medium"
+                  aria-current={current ? "page" : undefined}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
 
-html {
-  scroll-behavior: smooth;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+          {/* Desktop CTA */}
+          <div className="hidden md:flex items-center gap-2">
+            
+              href="https://github.com/sugumaran-nix/ai-shopping-agent"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost py-1.5 px-3 text-sm"
+              aria-label="View source on GitHub (opens in new tab)"
+            >
+              <Github className="w-4 h-4" aria-hidden="true" />
+              GitHub
+            </a>
+            {/* Fixed: was "/?focus=1" — now goes to /search */}
+            <Link href="/search" className="btn-primary py-1.5 px-4 text-sm">
+              <Search className="w-3.5 h-3.5" aria-hidden="true" />
+              Search Now
+            </Link>
+          </div>
 
-body {
-  /* --font-inter is injected by next/font on <html> via the inter.variable class */
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  background-color: var(--color-black);
-  color: var(--text-primary);
-  min-height: 100dvh;
-  overflow-x: hidden;
-}
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            className="md:hidden p-2 rounded-lg transition-colors hover:bg-white/5 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            style={{ color: "var(--text-secondary)" }}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+          >
+            {menuOpen
+              ? <X className="w-5 h-5"    aria-hidden="true" />
+              : <Menu className="w-5 h-5" aria-hidden="true" />
+            }
+          </button>
+        </nav>
+      </header>
 
-/* ── Scene backgrounds ────────────────────────────────────────── */
-.scene-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -3;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124, 58, 237, 0.2) 0%, transparent 70%),
-    var(--color-black);
-}
-
-.scene-nebula {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background:
-    radial-gradient(ellipse 40% 40% at 15% 60%, rgba(79, 70, 229, 0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 85% 40%, rgba(14, 165, 233, 0.05) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.scene-stars {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 55% 65%, rgba(255,255,255,0.20) 0%, transparent 100%),
-    radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 55%, rgba(255,255,255,0.18) 0%, transparent 100%),
-    radial-gradient(1px 1px at 40% 90%, rgba(255,255,255,0.15) 0%, transparent 100%);
-  pointer-events: none;
-}
-
-/* ── Glass ────────────────────────────────────────────────────── */
-.glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: var(--shadow-card);
-}
-
-/* ── Buttons ──────────────────────────────────────────────────── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.2rem;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
-  white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.35);
-  text-decoration: none;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
-}
-
-.btn-primary:active:not(:disabled) { transform: translateY(0); }
-.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--glass-border);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  text-decoration: none;
-}
-
-.btn-ghost:hover,
-.btn-ghost:focus-visible {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-}
-
-/* ── Nav link interactive state (keyboard + hover) ────────────── */
-/*
-  Replaces the onMouseEnter/onMouseLeave inline JS in Navbar and Footer.
-  Both hover AND :focus-visible get the same color change, so keyboard
-  users see the same feedback as mouse users.
-*/
-.nav-link {
-  color: var(--text-secondary);
-  transition: color 0.15s;
-  text-decoration: none;
-}
-
-.nav-link:hover,
-.nav-link:focus-visible {
-  color: var(--text-primary);
-}
-
-.nav-link[aria-current="page"] {
-  color: var(--text-primary);
-  position: relative;
-}
-
-.nav-link[aria-current="page"]::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--gradient-brand);
-}
-
-/* ── Pills / Badges ───────────────────────────────────────────── */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.28rem 0.8rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.pill-violet {
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  color: #C4B5FD;
-}
-
-.pill-green {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.28);
-  color: #6EE7B7;
-}
-
-/* ── Typography ───────────────────────────────────────────────── */
-.display-xl {
-  font-size: clamp(2.2rem, 6vw, 4rem);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  color: var(--text-primary);
-}
-
-.display-lg {
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-}
-
-.display-md {
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-  color: var(--text-primary);
-}
-
-.gradient-text {
-  background: var(--gradient-cosmic);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Skeleton ─────────────────────────────────────────────────── */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 100%
+      {/* Mobile menu */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            id="mobile-menu"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-16 inset-x-0 z-40 md:hidden"
+            style={{
+              background: "rgba(6,6,15,0.97)",
+              borderBottom: "1px solid rgba(255,255,255,0.07)",
+              backdropFilter: "blur(20px)",
+            }}
+          >
+            <nav className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-1" aria-label="Mobile navigation">
+              {NAV_LINKS.map((link) => {
+                const current = isCurrent(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="nav-link px-4 py-3 rounded-xl text-sm font-medium min-h-[44px] flex items-center"
+                    aria-current={current ? "page" : undefined}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+              <div
+                className="border-t mt-2 pt-3 flex gap-2"
+                style={{ borderColor: "rgba(255,255,255,0.07)" }}
+              >
+                
+                  href="https://github.com/sugumaran-nix/ai-shopping-agent"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost flex-1 justify-center text-sm py-2 min-h-[44px]"
+                  aria-label="View source on GitHub (opens in new tab)"
+                >
+                  <Github className="w-4 h-4" aria-hidden="true" /> GitHub
+                </a>
+                {/* Fixed: was "/?focus=1" */}
+                <Link
+                  href="/search"
+                  className="btn-primary flex-1 justify-center text-sm py-2 min-h-[44px]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Search className="w-3.5 h-3.5" aria-hidden="true" /> Search
+                </Link>
+              </div>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
-  border-radius: 8px;
-}
-
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
-}
-
-/* ── Search bar focus sweep ── differentiator ─────────────────── */
-@keyframes sweepLeft {
-  from { transform: translateX(-200%); opacity: 1; }
-  to   { transform: translateX(500%);  opacity: 0; }
-}
-
-.search-sweep {
-  position: relative;
-  overflow: hidden;
-}
-
-.search-sweep::before {
-  content: '';
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 28%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(124, 58, 237, 0.22),
-    rgba(99, 102, 241, 0.18),
-    rgba(14, 165, 233, 0.12),
-    transparent
-  );
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1;
-}
-
-.search-sweep:focus-within::before {
-  animation: sweepLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* ── Marquee ──────────────────────────────────────────────────── */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-/* ── Section divider ──────────────────────────────────────────── */
-.section-divider {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(124, 58, 237, 0.3),
-    rgba(14, 165, 233, 0.2),
-    transparent
-  );
-}
-
-/* ── Utilities ────────────────────────────────────────────────── */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* ── Scrollbar ────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
-
-/* ── Focus ────────────────────────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid rgba(124, 58, 237, 0.6);
-  outline-offset: 2px;
-}
-
-/* ── Animations ───────────────────────────────────────────────── */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-12px); }
-}
-
-/* ── Reduced motion ───────────────────────────────────────────── */
-/*
-  Covers CSS animations/transitions. Framer Motion is handled globally via
-  <MotionConfig reducedMotion="user"> in MotionProvider.tsx.
-*/
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }
