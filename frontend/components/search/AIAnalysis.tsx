@@ -11,12 +11,12 @@ interface AIAnalysisProps {
 }
 
 export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) {
-  const [expanded, setExpanded] = useState(false);
+  // Fixed: default true so the AI verdict is visible immediately —
+  // it's the primary value prop and shouldn't require an extra click to discover.
+  const [expanded, setExpanded] = useState(true);
 
   const isError = analysis.includes("unavailable") || analysis.includes("temporarily");
-
-  // Format markdown-like text into clean paragraphs
-  const lines = analysis.split("\n").filter((l) => l.trim());
+  const lines   = analysis.split("\n").filter((l) => l.trim());
 
   return (
     <motion.div
@@ -25,21 +25,23 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
       className="glass-card rounded-2xl overflow-hidden"
       style={{ border: "1px solid rgba(124,58,237,0.2)" }}
     >
-      {/* Header — always visible */}
+      {/* Header — always visible, acts as toggle */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-3 p-4 text-left transition-colors hover:bg-white/[0.02]"
+        // Fixed: aria-expanded tells screen readers whether the panel is open or closed
+        aria-expanded={expanded}
+        aria-controls="ai-analysis-body"
       >
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.25)" }}
         >
-          {isError ? (
-            <Brain className="w-4 h-4" style={{ color: "#A78BFA" }} />
-          ) : (
-            <Sparkles className="w-4 h-4" style={{ color: "#A78BFA" }} />
-          )}
+          {isError
+            ? <Brain    className="w-4 h-4" style={{ color: "#A78BFA" }} aria-hidden="true" />
+            : <Sparkles className="w-4 h-4" style={{ color: "#A78BFA" }} aria-hidden="true" />
+          }
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -56,7 +58,8 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
           <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-muted)" }}>
             {isError
               ? "Analysis temporarily unavailable"
-              : `Analysed ${total} products for "${query}"`}
+              : `Analysed ${total} products for "${query}"`
+            }
           </p>
         </div>
         <ChevronDown
@@ -65,18 +68,22 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
             color: "var(--text-muted)",
             transform: expanded ? "rotate(180deg)" : "none",
           }}
+          aria-hidden="true"
         />
       </button>
 
       {/* Expandable body */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
+            id="ai-analysis-body"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
             className="overflow-hidden"
+            role="region"
+            aria-label="AI analysis content"
           >
             <div
               className="px-4 pb-4 pt-1"
@@ -95,8 +102,8 @@ export default function AIAnalysis({ analysis, query, total }: AIAnalysisProps) 
                         key={i}
                         className="text-sm leading-relaxed"
                         style={{
-                          color: isHeading ? "var(--text-primary)" : "var(--text-secondary)",
-                          fontWeight: isHeading ? 600 : 400,
+                          color:      isHeading ? "var(--text-primary)"   : "var(--text-secondary)",
+                          fontWeight: isHeading ? 600                      : 400,
                         }}
                       >
                         {line.replace(/^\*+|\*+$/g, "").replace(/^#+\s*/, "")}
