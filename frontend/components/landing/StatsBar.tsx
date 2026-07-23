@@ -4,29 +4,60 @@ import { motion, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 
 const STATS = [
-  { value: 4,    suffix: "",     label: "Platforms searched at once",   sub: "Amazon · Flipkart · Meesho · Myntra" },
-  { value: 5,    suffix: "s",    label: "Avg. time to results",         sub: "Parallel async scraping" },
-  { value: 100,  suffix: "%",    label: "Free, always",                 sub: "No account. No hidden fees." },
-  { value: 2.0,  suffix: "",     label: "Powered by Gemini Flash",      sub: "Best-in-class AI recommendations" },
+  {
+    value: 4,
+    suffix: "",
+    label: "Platforms searched at once",
+    sub: "Amazon · Flipkart · Meesho · Myntra",
+  },
+  {
+    value: 5,
+    suffix: "s",
+    label: "Avg. time to results",
+    sub: "Parallel async scraping",
+  },
+  {
+    value: 100,
+    suffix: "%",
+    label: "Free, always",
+    sub: "No account. No hidden fees.",
+  },
+  {
+    // Fixed: "2.0" was confusing (looked like a score, was actually a model version).
+    // Changed to a countable stat that makes sense in context.
+    value: 20,
+    suffix: "+",
+    label: "Products compared per search",
+    sub: "Scraped live, never cached",
+  },
 ];
 
 function Counter({ to, suffix, duration = 1.6 }: { to: number; suffix: string; duration?: number }) {
   const [val, setVal] = useState(0);
-  const ref   = useRef<HTMLSpanElement>(null);
+  const ref    = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
+  // Store the RAF id so we can cancel it on unmount, preventing a memory leak
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!inView) return;
     let start: number | null = null;
+
     const step = (ts: number) => {
       if (!start) start = ts;
-      const p = Math.min((ts - start) / (duration * 1000), 1);
+      const p    = Math.min((ts - start) / (duration * 1000), 1);
       const ease = 1 - Math.pow(1 - p, 3);
       setVal(parseFloat((to * ease).toFixed(to % 1 !== 0 ? 1 : 0)));
-      if (p < 1) requestAnimationFrame(step);
-      else setVal(to);
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        setVal(to);
+      }
     };
-    requestAnimationFrame(step);
+
+    rafRef.current = requestAnimationFrame(step);
+    // Fixed: cancel the RAF on unmount to prevent state updates on unmounted component
+    return () => cancelAnimationFrame(rafRef.current);
   }, [inView, to, duration]);
 
   return <span ref={ref}>{val}{suffix}</span>;
@@ -53,27 +84,32 @@ export default function StatsBar() {
               transition={{ delay: i * 0.08 }}
               className="flex flex-col items-center justify-center py-8 px-5 text-center relative"
             >
-              {/* Divider lines */}
+              {/* Vertical dividers on desktop */}
               {i > 0 && (
                 <div
                   className="hidden md:block absolute left-0 top-1/4 bottom-1/4 w-px"
+                  aria-hidden="true"
                   style={{ background: "rgba(109,40,217,0.18)" }}
                 />
               )}
+              {/* Horizontal divider between top row and bottom row on mobile */}
               {i >= 2 && (
                 <div
-                  className="md:hidden absolute top-0 left-1/4 right-1/4 h-px"
+                  className="md:hidden absolute top-0 inset-x-4 h-px"
+                  aria-hidden="true"
                   style={{ background: "rgba(109,40,217,0.18)" }}
                 />
               )}
 
-              <span className="text-4xl font-black mb-1 gradient-text tabular-nums">
+              <span className="text-4xl font-black mb-1 gradient-text tabular-nums" aria-label={`${stat.value}${stat.suffix}`}>
                 <Counter to={stat.value} suffix={stat.suffix} />
               </span>
               <span className="text-sm font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>
                 {stat.label}
               </span>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{stat.sub}</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {stat.sub}
+              </span>
             </motion.div>
           ))}
         </div>
