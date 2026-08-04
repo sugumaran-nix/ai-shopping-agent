@@ -1,20 +1,38 @@
 services:
   - type: web
     name: ai-shopping-agent-backend
-    runtime: python
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: SCRAPERAPI_KEY
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: SCRAPER_API_KEY
+      - key: EBAY_CLIENT_ID
+        sync: false
+      - key: EBAY_CLIENT_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
-        value: "*"
-      - key: RATE_LIMIT_PER_MINUTE
-        value: "10"
-      - key: CACHE_TTL_SECONDS
-        value: "600"
-    plan: starter
-    healthCheckPath: /health
-    autoDeploy: true
+        value: https://your-frontend-domain.vercel.app
+
+  # Scheduled canary health check - configure a Render Cron Job (or GitHub
+  # Actions schedule) to hit this instead of relying on users to report a
+  # broken scraper:
+  #   curl -f https://ai-shopping-agent-backend.onrender.com/api/health
+  - type: cron
+    name: ai-shopping-agent-health-check
+    env: python
+    rootDir: backend
+    schedule: "0 */6 * * *"   # every 6 hours
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      python -c "
+      import asyncio, sys, httpx;
+      r = httpx.get('https://ai-shopping-agent-backend.onrender.com/api/health', timeout=60);
+      data = r.json();
+      unhealthy = [d for d in data if not d['healthy']];
+      print(data);
+      sys.exit(1 if unhealthy else 0)
+      "

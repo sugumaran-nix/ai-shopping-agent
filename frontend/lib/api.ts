@@ -1,58 +1,44 @@
-import { SearchRequest, SearchResponse } from "@/types";
+export type ScrapeStatus = "fresh" | "stale" | "unavailable";
 
-// WARNING: This URL is a hardcoded fallback. Set NEXT_PUBLIC_API_URL in your
-// Vercel environment variables so you can change backends without a code deploy.
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://ai-shopping-agent-backend-z0wq.onrender.com";
+export interface Product {
+  source: string;
+  title: string;
+  price: number;
+  currency: string;
+  rating: number | null;
+  review_count: number | null;
+  url: string;
+  image_url: string | null;
+  fetched_at: string;
+}
 
-/**
- * Searches for products across platforms.
- *
- * @param input  - Query string or full SearchRequest object.
- * @param signal - Optional AbortSignal from an AbortController.
- *                 Pass this to cancel the request when a new search starts,
- *                 preventing stale results from overwriting fresher ones.
- */
-export async function searchProducts(
-  input: string | SearchRequest,
-  signal?: AbortSignal
-): Promise<SearchResponse> {
-  const body: SearchRequest =
-    typeof input === "string" ? { query: input } : input;
+export interface SourceResult {
+  source: string;
+  status: ScrapeStatus;
+  products: Product[];
+  error: string | null;
+  fetched_at: string | null;
+}
 
-  const response = await fetch(`${API_BASE}/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal, // Passed through so the caller can abort
-  });
+export interface SearchResponse {
+  query: string;
+  results: SourceResult[];
+  ai_recommendation: string | null;
+  ai_error: string | null;
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+export class ApiError extends Error {}
+
+export async function searchProducts(query: string, signal?: AbortSignal): Promise<SearchResponse> {
+  const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}`;
+  const response = await fetch(url, { signal });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `Search failed (${response.status})`);
+    const body = await response.json().catch(() => null);
+    throw new ApiError(body?.detail || `Search failed with status ${response.status}`);
   }
 
   return response.json();
 }
-
-/**
- * Pings the backend health endpoint.
- * Use this to detect cold-start delays on Render free tier:
- * fire this on page load and show a "warming up" message if it takes >3s.
- */
-export async function healthCheck(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/health`, { cache: "no-store" });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-export const SITE_META: Record<string, { label: string; color: string; bg: string }> = {
-  amazon:   { label: "Amazon",   color: "#FF9900", bg: "rgba(255,153,0,0.12)"  },
-  flipkart: { label: "Flipkart", color: "#2874F0", bg: "rgba(40,116,240,0.12)" },
-  meesho:   { label: "Meesho",   color: "#F43397", bg: "rgba(244,51,151,0.12)" },
-  myntra:   { label: "Myntra",   color: "#FF3F6C", bg: "rgba(255,63,108,0.12)" },
-};

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.9"
 
 services:
   backend:
@@ -8,18 +8,16 @@ services:
     env_file:
       - ./backend/.env
     volumes:
-      - ./backend:/app
-    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+      - backend_cache:/app/.cache
 
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
-    env_file:
-      - ./frontend/.env.local
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev
+
+volumes:
+  backend_cache:

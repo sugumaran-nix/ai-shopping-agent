@@ -1,58 +1,80 @@
-import httpx
+"""
+Amazon.in search-results scraper.
+
+IMPORTANT: Amazon changes its result-page markup often and varies it by
+region/experiment. The selectors below are a reasonable current baseline,
+not a permanent guarantee. This is exactly why `BaseScraper` never lets a
+selector failure look like "no results" - it's surfaced as an error and
+caught by /health so you find out the day it breaks, not from a user
+complaint.
+"""
+from __future__ import annotations
+
+from urllib.parse import quote_plus
+
 from bs4 import BeautifulSoup
-from typing import List
-from models import Product
-from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
 
-def build_url(query: str) -> str:
-    return f"https://www.amazon.in/s?k={query.replace(' ', '+')}"
+from models import Source
+from scrapers.base import BaseScraper
 
-async def scrape_amazon(query: str) -> List[Product]:
-    products = []
-    try:
-        headers = {
-            **get_headers(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-IN,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Cache-Control": "no-cache",
-        }
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(build_url(query), headers=headers)
-            if response.status_code != 200:
-                print(f"[Amazon] Status {response.status_code}")
-                return []
-            soup = BeautifulSoup(response.text, "html.parser")
-            results = soup.select("div[data-component-type='s-search-result']")
-            for item in results[:8]:
+
+class AmazonScraper(BaseScraper):
+    source = Source.AMAZON
+
+    def build_search_url(self, query: str) -> str:
+        return f"https://www.amazon.in/s?k={quote_plus(query)}"
+
+    def parse(self, html: str) -> list[dict]:
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+
+        for card in soup.select("div[data-component-type='s-search-result']"):
+            title_el = card.select_one("h2 a span") or card.select_one("h2 span")
+            price_whole = card.select_one("span.a-price-whole")
+            price_symbol = card.select_one("span.a-price-symbol")
+            rating_el = card.select_one("span.a-icon-alt")
+            review_el = card.select_one("span[aria-label][dir='auto']") or card.select_one(
+                "span.a-size-base.s-underline-text"
+            )
+            link_el = card.select_one("h2 a")
+            img_el = card.select_one("img.s-image")
+
+            if not (title_el and price_whole and link_el):
+                # Missing a core field (e.g. a sponsored/ad card with a
+                # different layout) - skip rather than guess.
+                continue
+
+            try:
+                price = float(price_whole.get_text(strip=True).replace(",", "").rstrip("."))
+            except ValueError:
+                continue
+
+            rating = None
+            if rating_el:
                 try:
-                    title_tag = item.select_one("h2 span")
-                    if not title_tag: continue
-                    title = title_tag.get_text(strip=True)
-                    link_tag = item.select_one("h2 a")
-                    if not link_tag: continue
-                    product_url = "https://www.amazon.in" + link_tag.get("href", "")
-                    price_tag = item.select_one("span.a-price > span.a-offscreen")
-                    price = clean_price(price_tag.get_text() if price_tag else None)
-                    if not price: continue
-                    original_tag = item.select_one("span.a-price.a-text-price > span.a-offscreen")
-                    original_price = clean_price(original_tag.get_text() if original_tag else None)
-                    discount = calculate_discount(price, original_price) if original_price else None
-                    rating_tag = item.select_one("span.a-icon-alt")
-                    rating = clean_rating(rating_tag.get_text() if rating_tag else None)
-                    reviews_tag = item.select_one("span.a-size-base.s-underline-text")
-                    reviews = clean_reviews(reviews_tag.get_text() if reviews_tag else None)
-                    img_tag = item.select_one("img.s-image")
-                    image_url = img_tag.get("src") if img_tag else None
-                    products.append(Product(
-                        title=title, price=price, original_price=original_price,
-                        discount=discount, rating=rating, reviews=reviews,
-                        image_url=image_url, product_url=product_url,
-                        site="amazon", available=True,
-                    ))
-                except Exception as e:
-                    print(f"[Amazon] Parse error: {e}")
-    except Exception as e:
-        print(f"[Amazon] Request failed: {e}")
-    print(f"[Amazon] Found {len(products)} products")
-    return products
+                    rating = float(rating_el.get_text(strip=True).split(" ")[0])
+                except (ValueError, IndexError):
+                    rating = None
+
+            review_count = None
+            if review_el:
+                digits = "".join(ch for ch in review_el.get_text(strip=True) if ch.isdigit())
+                if digits:
+                    review_count = int(digits)
+
+            href = link_el.get("href", "")
+            full_url = href if href.startswith("http") else f"https://www.amazon.in{href}"
+
+            results.append(
+                {
+                    "title": title_el.get_text(strip=True),
+                    "price": price,
+                    "currency": "INR" if not price_symbol or price_symbol.get_text(strip=True) != "$" else "USD",
+                    "rating": rating,
+                    "review_count": review_count,
+                    "url": full_url,
+                    "image_url": img_el.get("src") if img_el else None,
+                }
+            )
+
+        return results

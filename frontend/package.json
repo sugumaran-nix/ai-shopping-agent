@@ -1,6 +1,6 @@
 {
-  "name": "ai-shopping-agent",
-  "version": "0.1.0",
+  "name": "ai-shopping-agent-frontend",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,22 +9,21 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.10",
+    "next": "14.2.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "framer-motion": "^11.0.3",
-    "lucide-react": "^0.469.0",
-    "axios": "^1.6.5"
+    "framer-motion": "^11.5.6",
+    "lucide-react": "^0.446.0"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "typescript": "^5",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8",
-    "autoprefixer": "^10.0.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.10"
+    "typescript": "^5.6.2",
+    "@types/react": "^18.3.9",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^22.7.0",
+    "tailwindcss": "^3.4.13",
+    "postcss": "^8.4.47",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.13"
   }
 }

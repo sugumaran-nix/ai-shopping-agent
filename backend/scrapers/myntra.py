@@ -1,60 +1,110 @@
-import httpx
+"""
+Myntra search-results scraper.
+
+Like Meesho, Myntra's results grid is client-rendered, so this requests JS
+rendering. Myntra also embeds a `window.__myx` (or similar) JSON blob with
+structured product data on many page variants - preferred over CSS-class
+scraping for the same durability reason as meesho.py.
+"""
+from __future__ import annotations
+
+import json
+import re
+from urllib.parse import quote_plus
+
 from bs4 import BeautifulSoup
-from typing import List
-from models import Product
-from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
 
-def build_url(query: str) -> str:
-    return f"https://www.myntra.com/{query.replace(' ', '-')}"
+from models import Source
+from scrapers.base import BaseScraper
 
-async def scrape_myntra(query: str) -> List[Product]:
-    products = []
-    try:
-        headers = {
-            **get_headers(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-IN,en;q=0.9",
-        }
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(build_url(query), headers=headers)
-            if response.status_code != 200:
-                print(f"[Myntra] Status {response.status_code}")
-                return []
-            soup = BeautifulSoup(response.text, "html.parser")
+_WINDOW_DATA_RE = re.compile(r"window\.__myx\s*=\s*(\{.*?\});", re.DOTALL)
 
-            # Myntra renders products inside a JSON script tag
-            import json, re
-            script_tags = soup.find_all("script")
-            for script in script_tags:
-                text = script.string or ""
-                if "searchData" in text or "products" in text:
-                    match = re.search(r'"products"\s*:\s*(\[.*?\])', text, re.DOTALL)
-                    if match:
-                        try:
-                            items = json.loads(match.group(1))
-                            for item in items[:8]:
-                                title = f"{item.get('brand', '')} {item.get('product', '')}".strip()
-                                if not title: continue
-                                price = float(item.get("price", 0) or 0) or None
-                                if not price: continue
-                                mrp = float(item.get("mrp", 0) or 0) or None
-                                discount = calculate_discount(price, mrp) if mrp else None
-                                rating = float(item.get("rating", 0) or 0) or None
-                                pid = item.get("productId", "")
-                                slug = item.get("landingPageUrl", "")
-                                product_url = f"https://www.myntra.com/{slug}" if slug else f"https://www.myntra.com/{pid}"
-                                images = item.get("images") or []
-                                image_url = images[0].get("src") if images and isinstance(images[0], dict) else None
-                                products.append(Product(
-                                    title=title, price=price, original_price=mrp,
-                                    discount=discount, rating=rating, reviews=None,
-                                    image_url=image_url, product_url=product_url,
-                                    site="myntra", available=True,
-                                ))
-                        except Exception as e:
-                            print(f"[Myntra] JSON parse error: {e}")
-                    break
-    except Exception as e:
-        print(f"[Myntra] Request failed: {e}")
-    print(f"[Myntra] Found {len(products)} products")
-    return products
+
+class MyntraScraper(BaseScraper):
+    source = Source.MYNTRA
+    render_js = True
+
+    def build_search_url(self, query: str) -> str:
+        return f"https://www.myntra.com/{quote_plus(query.replace(' ', '-'))}"
+
+    def parse(self, html: str) -> list[dict]:
+        match = _WINDOW_DATA_RE.search(html)
+        if match:
+            try:
+                data = json.loads(match.group(1))
+                products = self._extract_from_window_data(data)
+                if products:
+                    return products
+            except json.JSONDecodeError:
+                pass  # fall through to HTML fallback
+
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        for card in soup.select("li.product-base"):
+            brand_el = card.select_one("h3.product-brand")
+            name_el = card.select_one("h4.product-product")
+            price_el = card.select_one("span.product-discountedPrice") or card.select_one(
+                "div.product-price span"
+            )
+            link_el = card.select_one("a")
+            img_el = card.select_one("img")
+
+            if not (name_el and price_el and link_el):
+                continue
+
+            price_text = re.sub(r"[^\d.]", "", price_el.get_text(strip=True))
+            if not price_text:
+                continue
+            try:
+                price = float(price_text)
+            except ValueError:
+                continue
+
+            title = f"{brand_el.get_text(strip=True)} {name_el.get_text(strip=True)}" if brand_el else name_el.get_text(strip=True)
+            href = link_el.get("href", "")
+            full_url = href if href.startswith("http") else f"https://www.myntra.com/{href}"
+
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": None,
+                    "review_count": None,
+                    "url": full_url,
+                    "image_url": img_el.get("src") if img_el else None,
+                }
+            )
+
+        return results
+
+    @staticmethod
+    def _extract_from_window_data(data: dict) -> list[dict]:
+        try:
+            items = data["searchData"]["results"]["products"]
+        except (KeyError, TypeError):
+            return []
+
+        results = []
+        for item in items:
+            title = f"{item.get('brand', '')} {item.get('product', '')}".strip()
+            price = item.get("discountedPrice") or item.get("price")
+            landing = item.get("landingPageUrl")
+            if not (title and price and landing):
+                continue
+            try:
+                price = float(price)
+            except (ValueError, TypeError):
+                continue
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": item.get("rating"),
+                    "review_count": item.get("ratingCount"),
+                    "url": f"https://www.myntra.com/{landing}",
+                    "image_url": item.get("searchImage"),
+                }
+            )
+        return results

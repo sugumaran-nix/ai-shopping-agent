@@ -1,70 +1,82 @@
-import httpx
+"""
+Flipkart search-results scraper.
+
+Same caveat as amazon.py: Flipkart's layout varies by product category
+(electronics vs fashion vs generic grid). This covers the common grid/list
+layout; category-specific edge cases are exactly what /health's canary
+queries are for - run a few representative category queries daily and you'll
+see this scraper's success rate drop before users report broken results.
+"""
+from __future__ import annotations
+
+from urllib.parse import quote_plus
+
 from bs4 import BeautifulSoup
-from typing import List
-from models import Product
-from utils.headers import get_headers, clean_price, clean_rating, clean_reviews, calculate_discount
 
-def build_url(query: str) -> str:
-    return f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
+from models import Source
+from scrapers.base import BaseScraper
 
-async def scrape_flipkart(query: str) -> List[Product]:
-    products = []
-    try:
-        headers = {
-            **get_headers(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-IN,en;q=0.9",
-        }
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(build_url(query), headers=headers)
-            if response.status_code != 200:
-                print(f"[Flipkart] Status {response.status_code}")
-                return []
-            soup = BeautifulSoup(response.text, "html.parser")
 
-            products_data = []
-            # Try multiple card selectors across Flipkart layout versions
-            for selector in ["div[data-id]", "div._1AtVbE", "div._13oc-S", "div.tUxRFH"]:
-                cards = soup.select(selector)
-                if cards:
-                    products_data = cards[:10]
-                    break
+class FlipkartScraper(BaseScraper):
+    source = Source.FLIPKART
 
-            for item in products_data:
+    def build_search_url(self, query: str) -> str:
+        return f"https://www.flipkart.com/search?q={quote_plus(query)}"
+
+    def parse(self, html: str) -> list[dict]:
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+
+        # Flipkart reuses generic class names across A/B tests; matching on
+        # structural anchors (an <a> with an href containing '/p/') is more
+        # durable than betting on a specific class string.
+        for anchor in soup.select("a[href*='/p/']"):
+            container = anchor.find_parent("div")
+            if container is None:
+                continue
+
+            title = anchor.get("title") or anchor.get_text(strip=True)
+            price_el = container.find(string=lambda s: s and s.strip().startswith("₹"))
+            if not title or not price_el:
+                continue
+
+            price_text = price_el.strip().lstrip("₹").replace(",", "")
+            try:
+                price = float(price_text)
+            except ValueError:
+                continue
+
+            rating = None
+            rating_el = container.select_one("div._3LWZlK, div.XQDdHH")
+            if rating_el:
                 try:
-                    title_tag = item.select_one("div._4rR01T, a.s1Q9rs, div.KzDlHZ, div.WKTcLC")
-                    if not title_tag: continue
-                    title = title_tag.get_text(strip=True)
-                    if len(title) < 5: continue
+                    rating = float(rating_el.get_text(strip=True))
+                except ValueError:
+                    rating = None
 
-                    link_tag = item.select_one("a[href]")
-                    if not link_tag: continue
-                    href = link_tag.get("href", "")
-                    product_url = f"https://www.flipkart.com{href}" if href.startswith("/") else href
+            img_el = container.select_one("img")
+            href = anchor.get("href", "")
+            full_url = href if href.startswith("http") else f"https://www.flipkart.com{href}"
 
-                    price_tag = item.select_one("div._30jeq3, div.Nx9bqj")
-                    price = clean_price(price_tag.get_text() if price_tag else None)
-                    if not price: continue
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": rating,
+                    "review_count": None,
+                    "url": full_url,
+                    "image_url": img_el.get("src") if img_el else None,
+                }
+            )
 
-                    original_tag = item.select_one("div._3I9_wc, div.yRaY8j")
-                    original_price = clean_price(original_tag.get_text() if original_tag else None)
-                    discount = calculate_discount(price, original_price) if original_price else None
+        # De-duplicate: the anchor-based selector can match the same card twice
+        # (image link + title link both contain '/p/').
+        seen_urls = set()
+        deduped = []
+        for r in results:
+            if r["url"] not in seen_urls:
+                seen_urls.add(r["url"])
+                deduped.append(r)
 
-                    rating_tag = item.select_one("div._3LWZlK, div.XQDdHH")
-                    rating = clean_rating(rating_tag.get_text() if rating_tag else None)
-
-                    img_tag = item.select_one("img._396cs4, img.DByuf4")
-                    image_url = img_tag.get("src") if img_tag else None
-
-                    products.append(Product(
-                        title=title, price=price, original_price=original_price,
-                        discount=discount, rating=rating, reviews=None,
-                        image_url=image_url, product_url=product_url,
-                        site="flipkart", available=True,
-                    ))
-                except Exception as e:
-                    print(f"[Flipkart] Parse error: {e}")
-    except Exception as e:
-        print(f"[Flipkart] Request failed: {e}")
-    print(f"[Flipkart] Found {len(products)} products")
-    return products
+        return deduped
