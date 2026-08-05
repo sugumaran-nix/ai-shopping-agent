@@ -318,3 +318,29 @@ body {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
+
+/* section-divider — decorative horizontal rule used by landing sections */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(109, 40, 217, 0.25),
+    transparent
+  );
+  border: none;
+}
+
+/* search-sweep — glow effect on the hero search bar */
+.search-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 70% 80% at 50% 50%,
+    rgba(109, 40, 217, 0.06),
+    transparent 70%
+  );
+  pointer-events: none;
+}
