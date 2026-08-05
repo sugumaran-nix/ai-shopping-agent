@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowUpDown, ChevronDown, Search, Share2, Check,
+  ArrowUpDown, ChevronDown, Share2, Check,
   Zap, ShieldCheck, Clock,
 } from "lucide-react";
 
