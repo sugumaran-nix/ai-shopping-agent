@@ -1,9 +1,0 @@
-{
-  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build",
-  "outputDirectory": "frontend/.next",
-  "framework": "nextjs",
-  "installCommand": "cd frontend && npm install --legacy-peer-deps",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://ai-shopping-agent-backend-z0wq.onrender.com"
-  }
-}
