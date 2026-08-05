@@ -1,7 +1,6 @@
 {
+  "framework": "nextjs",
   "buildCommand": "npm install --legacy-peer-deps && npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "framework": "nextjs",
-  "rootDirectory": "frontend",
   "regions": ["bom1"]
 }
