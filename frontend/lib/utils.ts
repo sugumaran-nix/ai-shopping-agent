@@ -4,10 +4,10 @@ export function cn(...inputs: ClassValue[]): string {
   return inputs.filter(Boolean).join(" ");
 }
 
-export function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-IN", {
+export function formatPrice(price: number, currency: string = "INR"): string {
+  return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
     style: "currency",
-    currency: "INR",
+    currency: currency,
     maximumFractionDigits: 0,
   }).format(price);
 }

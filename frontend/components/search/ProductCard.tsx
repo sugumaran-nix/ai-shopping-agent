@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Star, ExternalLink, ShoppingCart, ImageOff } from "lucide-react";
 import type { FlatProduct } from "@/types";
 import { SITE_META } from "@/lib/api";
+import { formatPrice } from "@/lib/utils";
 
 const OPTIMISED_PATTERN =
   /amazon\.(in|com)|flipkart\.com|fkimg\.com|meesho\.(com|net)|myntra\.com|myntassets\.com/;
@@ -139,8 +140,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
             className="text-lg font-bold"
             style={{ color: "var(--text-primary)" }}
           >
-            {product.currency === "INR" ? "₹" : "$"}
-            {product.price.toLocaleString("en-IN")}
+            {formatPrice(product.price, product.currency)}
           </span>
         </div>
 

@@ -28,7 +28,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 /** Only the three reliably-working sources */
-const ACTIVE_SOURCES = ["amazon", "flipkart", "ebay"];
+const ACTIVE_SOURCES = ["amazon", "flipkart", "meesho", "myntra", "ebay"];
 
 const STATUS_LABEL: Record<ScrapeStatus, string> = {
   fresh:       "Live",
@@ -62,7 +62,7 @@ function sortProducts(products: FlatProduct[], key: SortKey): FlatProduct[] {
 
 function HeroIdle({ onSearch, loading }: { onSearch: (q: string) => void; loading: boolean }) {
   const features = [
-    { icon: Zap,         text: "Live prices from 3 stores" },
+    { icon: Zap,         text: "Live prices from 5 stores" },
     { icon: ShieldCheck, text: "Validated — no fabricated data" },
     { icon: Clock,       text: "Cached results are labeled" },
   ];
@@ -88,7 +88,7 @@ function HeroIdle({ onSearch, loading }: { onSearch: (q: string) => void; loadin
           Shopiq
         </h1>
         <p className="text-sm max-w-xs" style={{ color: "var(--text-secondary)" }}>
-          AI-powered price comparison across Amazon, Flipkart &amp; eBay.
+          AI-powered price comparison across Amazon, Flipkart, Meesho, Myntra &amp; eBay.
           Every result is real — fresh or cached, always labeled.
         </p>
       </div>

@@ -43,7 +43,7 @@ backend/
     aggregator.py                  Runs all sources concurrently (bounded)
     health_monitor.py               Canary health checks per source
 
-frontend/                 Next.js 14 + TypeScript + Tailwind (same visual
+frontend/                 Next.js 15 + TypeScript + Tailwind (same visual
                            language as the original — glassmorphism, cosmic
                            gradient — extended with a freshness/trust badge
                            system as the one new signature element)
@@ -67,6 +67,7 @@ python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activa
 pip install -r requirements.txt
 cp .env.example .env
 # Fill in SCRAPERAPI_KEY and GEMINI_API_KEY at minimum.
+# The variable name in .env MUST be SCRAPERAPI_KEY (matching config.py).
 # EBAY_CLIENT_ID / EBAY_CLIENT_SECRET are optional (enables the eBay source).
 uvicorn main:app --reload
 ```

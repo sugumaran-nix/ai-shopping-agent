@@ -21,7 +21,12 @@ from scrapers.myntra import MyntraScraper
 # One realistic, popular-enough query per source that should reliably return
 # results if the scraper is working. Pick queries that are unlikely to ever
 # have zero genuine matches.
-_CANARY_QUERY = "wireless mouse"
+_SOURCE_CANARIES = {
+    "amazon":   "wireless mouse",
+    "flipkart": "wireless mouse",
+    "meesho":   "saree",
+    "myntra":   "running shoes",
+}
 
 _SCRAPERS = {
     "amazon": AmazonScraper(),
@@ -34,7 +39,8 @@ _SCRAPERS = {
 async def run_health_check() -> list[HealthCheckResult]:
     results = []
     for name, scraper in _SCRAPERS.items():
-        result = await scraper.search(_CANARY_QUERY)
+        query = _SOURCE_CANARIES.get(name, "wireless mouse")
+        result = await scraper.search(query)
         healthy = result.status == ScrapeStatus.FRESH and len(result.products) > 0
         results.append(
             HealthCheckResult(

@@ -91,6 +91,14 @@ async def search_ebay(query: str, limit: int = 10) -> SourceResult:
             except (KeyError, ValueError, TypeError):
                 continue  # malformed item from the API itself - skip, don't guess
 
+        if not products:
+            return SourceResult(
+                source=Source.EBAY,
+                status=ScrapeStatus.UNAVAILABLE,
+                products=[],
+                error="eBay returned 0 results for this query",
+            )
+
         return SourceResult(source=Source.EBAY, status=ScrapeStatus.FRESH, products=products)
 
     except httpx.HTTPStatusError as exc:
