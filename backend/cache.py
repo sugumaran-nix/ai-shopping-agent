@@ -1,36 +1,36 @@
 """
-Two-tier persistent cache (diskcache).
+Two-tier cache built on top of `diskcache` (a real, persistent, file-backed
+cache - not an in-memory dict that vanishes on restart, and not synthetic
+data of any kind).
 
-Tiers:
-  fresh  (< cache_ttl_seconds)         → serve from cache, skip network
-  stale  (< stale_serve_ttl_seconds)   → serve as fallback if live scrape fails
-  expired (>= stale_serve_ttl_seconds) → delete and treat as UNAVAILABLE
+Every value stored here was produced by an actual successful scrape or a real
+API call. There is no seeded/fake/sample data anywhere in this module.
 
-Added in this version:
-  - max size limit to prevent unbounded disk growth
-  - thread-safe eviction
-  - basic stats tracking
-  - explicit clear() utility
+Tiering:
+  - "fresh" window (CACHE_TTL_SECONDS): serve straight from cache, skip the
+    network call entirely. This is what makes the app fast and cuts
+    ScraperAPI usage.
+  - "stale" window (STALE_SERVE_TTL_SECONDS): if a *live* scrape attempt
+    fails, we fall back to the last real successful result we have for that
+    query+source, but the response is explicitly tagged STALE so the
+    frontend can show "prices may be outdated" instead of silently
+    presenting old data as current.
+  - Beyond the stale window (or if nothing was ever cached), we report
+    UNAVAILABLE rather than inventing anything.
 """
 from __future__ import annotations
 
 import hashlib
-import logging
 import time
-from dataclasses import dataclass, field
-from threading import Lock
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from diskcache import Cache
 
 from config import get_settings
 
-logger = logging.getLogger("cache")
 settings = get_settings()
-
-_cache = Cache(settings.cache_dir, size_limit=settings.cache_max_size_bytes)
-_stats_lock = Lock()
-_stats = {"hits_fresh": 0, "hits_stale": 0, "misses": 0, "sets": 0}
+_cache = Cache(settings.cache_dir)
 
 
 def _key(source: str, query: str) -> str:
@@ -42,67 +42,31 @@ def _key(source: str, query: str) -> str:
 class CacheEntry:
     data: Any
     stored_at: float
-    is_fresh: bool
-
-    @property
-    def age_seconds(self) -> float:
-        return time.time() - self.stored_at
+    is_fresh: bool  # True if within CACHE_TTL_SECONDS of being stored
 
 
 def get(source: str, query: str) -> Optional[CacheEntry]:
-    """Return a CacheEntry if one exists within the stale window, else None."""
+    """Return the cached entry for this source+query, if one exists at all
+    (fresh or stale). Returns None only if nothing real was ever stored, or
+    it's older than STALE_SERVE_TTL_SECONDS.
+    """
     key = _key(source, query)
     record = _cache.get(key)
     if record is None:
-        with _stats_lock:
-            _stats["misses"] += 1
         return None
 
     data, stored_at = record
     age = time.time() - stored_at
 
     if age > settings.stale_serve_ttl_seconds:
+        # Too old to be useful even as a fallback - don't pretend it's current.
         _cache.delete(key)
-        with _stats_lock:
-            _stats["misses"] += 1
         return None
 
-    is_fresh = age <= settings.cache_ttl_seconds
-    with _stats_lock:
-        if is_fresh:
-            _stats["hits_fresh"] += 1
-        else:
-            _stats["hits_stale"] += 1
-
-    return CacheEntry(data=data, stored_at=stored_at, is_fresh=is_fresh)
+    return CacheEntry(data=data, stored_at=stored_at, is_fresh=age <= settings.cache_ttl_seconds)
 
 
 def set(source: str, query: str, data: Any) -> None:
-    """Store a successfully-scraped/fetched result."""
+    """Store a real, successfully-scraped/fetched result."""
     key = _key(source, query)
-    try:
-        _cache.set(key, (data, time.time()))
-        with _stats_lock:
-            _stats["sets"] += 1
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Cache write failed for %s/%s: %s", source, query[:30], exc)
-
-
-def get_stats() -> dict:
-    with _stats_lock:
-        total = _stats["hits_fresh"] + _stats["hits_stale"] + _stats["misses"]
-        hit_rate = (_stats["hits_fresh"] + _stats["hits_stale"]) / total if total else 0
-        return {
-            **_stats,
-            "total_requests": total,
-            "hit_rate_pct": round(hit_rate * 100, 1),
-            "disk_size_bytes": _cache.volume(),
-            "entry_count": len(_cache),
-        }
-
-
-def clear() -> int:
-    """Clear all entries. Returns number of entries cleared."""
-    count = len(_cache)
-    _cache.clear()
-    return count
+    _cache.set(key, (data, time.time()))

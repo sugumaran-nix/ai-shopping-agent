@@ -1,9 +1,3 @@
-"""
-Shared HTTP utilities: user-agent rotation and text cleaning helpers.
-These are used across scrapers to avoid duplicating parsing logic.
-"""
-from __future__ import annotations
-
 import random
 from typing import Optional
 
@@ -14,7 +8,6 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
 ]
-
 
 def get_headers() -> dict:
     return {
@@ -27,62 +20,52 @@ def get_headers() -> dict:
         "Upgrade-Insecure-Requests": "1",
     }
 
-
 def clean_price(price_str: Optional[str]) -> Optional[float]:
-    """Extract a numeric price from strings like '₹1,299' or '$ 19.99'."""
     if not price_str:
         return None
     try:
         cleaned = (
             price_str
             .replace("₹", "")
-            .replace("$", "")
             .replace(",", "")
             .replace(" ", "")
             .strip()
-            .rstrip(".")
         )
-        value = float(cleaned)
-        return value if value > 0 else None
+        return float(cleaned)
     except (ValueError, AttributeError):
         return None
 
-
 def clean_rating(rating_str: Optional[str]) -> Optional[float]:
-    """Extract a float rating from strings like '4.3 out of 5'."""
     if not rating_str:
         return None
     try:
-        value = float(rating_str.split()[0].strip())
-        return value if 0 <= value <= 5 else None
+        return float(rating_str.split()[0].strip())
     except (ValueError, AttributeError, IndexError):
         return None
 
-
 def clean_reviews(review_str: Optional[str]) -> Optional[int]:
-    """Extract an integer review count from strings like '(1,234 ratings)'."""
     if not review_str:
         return None
     try:
-        digits = "".join(ch for ch in review_str if ch.isdigit())
-        return int(digits) if digits else None
+        cleaned = (
+            review_str
+            .replace(",", "")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("ratings", "")
+            .replace("reviews", "")
+            .replace("Ratings", "")
+            .strip()
+        )
+        return int(cleaned)
     except (ValueError, AttributeError):
         return None
 
+def calculate_discount(price: float, original_price: float) -> Optional[int]:
+    if not original_price or original_price <= price:
+        return None
+    try:
+        return int(((original_price - price) / original_price) * 100)
+    except ZeroDivisionError:
+        return None
 
-def make_absolute_url(href: str, base_domain: str) -> str:
-    """
-    Convert a relative URL to absolute. Handles:
-      /path/to/page   → https://base_domain/path/to/page
-      //cdn.example   → https://cdn.example
-      https://...     → unchanged
-    """
-    if not href:
-        return ""
-    if href.startswith("http"):
-        return href
-    if href.startswith("//"):
-        return f"https:{href}"
-    base = base_domain.rstrip("/")
-    path = href if href.startswith("/") else f"/{href}"
-    return f"{base}{path}"

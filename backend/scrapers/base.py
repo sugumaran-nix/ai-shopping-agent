@@ -1,12 +1,18 @@
 """
-BaseScraper: the shared scrape → validate → cache → fallback flow.
+BaseScraper centralizes the behaviour every site-specific scraper needs:
 
-Each subclass only implements:
-  - build_search_url(query) → str
-  - parse(html) → list[dict]
+  1. Try a live scrape.
+  2. Validate every parsed product through the Pydantic model - anything
+     malformed is dropped, never patched or guessed at.
+  3. On success, cache the validated results and return them as FRESH.
+  4. On failure (network error, selectors found nothing, site layout
+     changed), fall back to the last real cached result and return it as
+     STALE - clearly labeled, never silently mixed with fresh data.
+  5. If there's no usable cache either, return UNAVAILABLE with the
+     specific error, instead of an empty list that looks like "no results"
+     when it actually means "we couldn't check."
 
-Everything else (retry on error, Pydantic validation, fresh/stale/unavailable
-classification, caching) is handled here once and applies uniformly.
+Each subclass only implements `build_search_url()` and `parse(html)`.
 """
 from __future__ import annotations
 
@@ -22,7 +28,7 @@ logger = logging.getLogger("scraper.base")
 
 class BaseScraper(ABC):
     source: Source
-    render_js: bool = False
+    render_js: bool = False  # set True in subclasses whose results are JS-rendered
 
     @abstractmethod
     def build_search_url(self, query: str) -> str:
@@ -32,16 +38,12 @@ class BaseScraper(ABC):
     def parse(self, html: str) -> list[dict]:
         """
         Parse raw HTML into a list of dicts with keys matching the `Product`
-        model. Do NOT construct `Product` objects here — validation is
-        centralised in `search()` so every scraper is held to the same
+        model. Do NOT construct `Product` objects here - validation happens
+        centrally in `search()` so every scraper is held to the same
         standard and failures are handled uniformly.
         """
 
     async def search(self, query: str) -> SourceResult:
-        """
-        Live scrape with full fresh/stale/unavailable fallback.
-        Never raises — always returns a SourceResult.
-        """
         cached = cache_module.get(self.source.value, query)
 
         try:
@@ -54,46 +56,31 @@ class BaseScraper(ABC):
             for raw in raw_products:
                 try:
                     validated.append(Product(source=self.source, **raw))
-                except Exception as exc:  # noqa: BLE001
+                except Exception:  # noqa: BLE001 - deliberately broad: any bad record is dropped
                     rejected += 1
-                    logger.debug("%s: dropped product during validation: %s", self.source.value, exc)
 
             if rejected:
                 logger.warning(
-                    "%s: dropped %d/%d items that failed validation",
+                    "%s: dropped %d/%d parsed items that failed validation",
                     self.source.value, rejected, len(raw_products),
                 )
 
             if not validated:
+                # The page loaded but selectors matched nothing usable - almost
+                # always means the site's layout changed. Treat as a failure,
+                # not as "zero products exist", and fall back to cache below.
                 raise FetchError(
                     f"{self.source.value}: parsed 0 valid products "
-                    f"(selectors may be out of date, or the page layout changed)"
+                    f"(selectors may be out of date for this page layout)"
                 )
 
-            cache_module.set(
-                self.source.value, query,
-                [p.model_dump(mode="json") for p in validated]
-            )
-            return SourceResult(
-                source=self.source,
-                status=ScrapeStatus.FRESH,
-                products=validated,
-            )
+            cache_module.set(self.source.value, query, [p.model_dump(mode="json") for p in validated])
+            return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=validated)
 
         except FetchError as exc:
             logger.error("%s: live scrape failed: %s", self.source.value, exc)
             if cached:
-                freshness = "fresh" if cached.is_fresh else "stale"
-                logger.info(
-                    "%s: serving %s cache (age %.0fs)",
-                    self.source.value, freshness, cached.age_seconds,
-                )
-                products = []
-                for p in cached.data:
-                    try:
-                        products.append(Product(**p))
-                    except Exception:  # noqa: BLE001
-                        pass  # corrupted cache entry — skip
+                products = [Product(**p) for p in cached.data]
                 return SourceResult(
                     source=self.source,
                     status=ScrapeStatus.STALE,
@@ -105,26 +92,4 @@ class BaseScraper(ABC):
                 status=ScrapeStatus.UNAVAILABLE,
                 products=[],
                 error=str(exc),
-            )
-        except Exception as exc:  # noqa: BLE001
-            # Catch-all so one broken scraper never kills the whole aggregation
-            logger.exception("%s: unexpected error: %s", self.source.value, exc)
-            if cached:
-                products = []
-                for p in cached.data:
-                    try:
-                        products.append(Product(**p))
-                    except Exception:  # noqa: BLE001
-                        pass
-                return SourceResult(
-                    source=self.source,
-                    status=ScrapeStatus.STALE,
-                    products=products,
-                    error=f"Unexpected error: {type(exc).__name__}",
-                )
-            return SourceResult(
-                source=self.source,
-                status=ScrapeStatus.UNAVAILABLE,
-                products=[],
-                error=f"Unexpected error: {type(exc).__name__}",
             )

@@ -1,13 +1,14 @@
 """
 Myntra search-results scraper.
 
-Like Meesho, Myntra's results are client-rendered. Prefers the window.__myx
-JSON blob embedded in the page over CSS-class scraping.
+Like Meesho, Myntra's results grid is client-rendered, so this requests JS
+rendering. Myntra also embeds a `window.__myx` (or similar) JSON blob with
+structured product data on many page variants - preferred over CSS-class
+scraping for the same durability reason as meesho.py.
 """
 from __future__ import annotations
 
 import json
-import logging
 import re
 from urllib.parse import quote_plus
 
@@ -15,11 +16,8 @@ from bs4 import BeautifulSoup
 
 from models import Source
 from scrapers.base import BaseScraper
-from utils.headers import clean_price, make_absolute_url
 
-_BASE = "https://www.myntra.com"
 _WINDOW_DATA_RE = re.compile(r"window\.__myx\s*=\s*(\{.*?\});", re.DOTALL)
-logger = logging.getLogger("scraper.myntra")
 
 
 class MyntraScraper(BaseScraper):
@@ -27,11 +25,9 @@ class MyntraScraper(BaseScraper):
     render_js = True
 
     def build_search_url(self, query: str) -> str:
-        slug = quote_plus(query.replace(" ", "-"))
-        return f"{_BASE}/{slug}"
+        return f"https://www.myntra.com/{quote_plus(query.replace(' ', '-'))}"
 
     def parse(self, html: str) -> list[dict]:
-        # Prefer window.__myx JSON
         match = _WINDOW_DATA_RE.search(html)
         if match:
             try:
@@ -39,10 +35,9 @@ class MyntraScraper(BaseScraper):
                 products = self._extract_from_window_data(data)
                 if products:
                     return products
-            except json.JSONDecodeError as exc:
-                logger.debug("Myntra window.__myx parse failed, falling back to HTML: %s", exc)
+            except json.JSONDecodeError:
+                pass  # fall through to HTML fallback
 
-        # HTML fallback
         soup = BeautifulSoup(html, "lxml")
         results = []
         for card in soup.select("li.product-base"):
@@ -57,26 +52,29 @@ class MyntraScraper(BaseScraper):
             if not (name_el and price_el and link_el):
                 continue
 
-            price = clean_price(re.sub(r"[^\d.]", "", price_el.get_text(strip=True)))
-            if price is None:
+            price_text = re.sub(r"[^\d.]", "", price_el.get_text(strip=True))
+            if not price_text:
+                continue
+            try:
+                price = float(price_text)
+            except ValueError:
                 continue
 
-            brand = brand_el.get_text(strip=True) if brand_el else ""
-            name = name_el.get_text(strip=True)
-            title = f"{brand} {name}".strip() if brand else name
-
+            title = f"{brand_el.get_text(strip=True)} {name_el.get_text(strip=True)}" if brand_el else name_el.get_text(strip=True)
             href = link_el.get("href", "")
-            full_url = make_absolute_url(href, _BASE)
+            full_url = href if href.startswith("http") else f"https://www.myntra.com/{href}"
 
-            results.append({
-                "title": title,
-                "price": price,
-                "currency": "INR",
-                "rating": None,
-                "review_count": None,
-                "url": full_url,
-                "image_url": img_el.get("src") if img_el else None,
-            })
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": None,
+                    "review_count": None,
+                    "url": full_url,
+                    "image_url": img_el.get("src") if img_el else None,
+                }
+            )
 
         return results
 
@@ -89,26 +87,24 @@ class MyntraScraper(BaseScraper):
 
         results = []
         for item in items:
-            brand = item.get("brand", "")
-            product = item.get("product", "")
-            title = f"{brand} {product}".strip() if brand else product
-            price_raw = item.get("discountedPrice") or item.get("price")
+            title = f"{item.get('brand', '')} {item.get('product', '')}".strip()
+            price = item.get("discountedPrice") or item.get("price")
             landing = item.get("landingPageUrl")
-            if not (title and price_raw and landing):
+            if not (title and price and landing):
                 continue
             try:
-                price = float(price_raw)
+                price = float(price)
             except (ValueError, TypeError):
                 continue
-            if price <= 0:
-                continue
-            results.append({
-                "title": title,
-                "price": price,
-                "currency": "INR",
-                "rating": item.get("rating"),
-                "review_count": item.get("ratingCount"),
-                "url": f"{_BASE}/{landing}",
-                "image_url": item.get("searchImage"),
-            })
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": item.get("rating"),
+                    "review_count": item.get("ratingCount"),
+                    "url": f"https://www.myntra.com/{landing}",
+                    "image_url": item.get("searchImage"),
+                }
+            )
         return results

@@ -1,36 +1,36 @@
 """
-Official eBay Browse API client (OAuth2 client-credentials).
+Official eBay Browse API client.
 
-The one source in this app that is NOT scraped. Exists to:
-  1. Provide a channel that cannot break from HTML/CSS changes
-  2. Act as a canary — if scrapers are failing but eBay is fine,
-     the problem is scraper drift, not network/ScraperAPI
+This is the one source in the app that is NOT scraped - it's a real,
+documented, authenticated API (OAuth2 client-credentials grant). It exists
+to give the app one channel that can never break because of an HTML/CSS
+change, and to act as a canary: if every scraper's success rate drops but
+this one is fine, you know the problem is scraper drift, not your network,
+cache, or ScraperAPI account.
 
-Optional — the app runs fine without EBAY_CLIENT_ID/SECRET.
+It's optional - the app runs fine without EBAY_CLIENT_ID/SECRET set, it just
+won't include an eBay column in results.
 """
 from __future__ import annotations
 
-import logging
 import time
+from typing import Optional
 
 import httpx
 
 from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
 
-logger = logging.getLogger("ebay")
 settings = get_settings()
 
 OAUTH_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 BROWSE_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
 
-# Module-level token cache (process-lifetime, not shared across workers)
 _token_cache: dict[str, float | str] = {"token": "", "expires_at": 0.0}
 
 
 async def _get_access_token(client: httpx.AsyncClient) -> str:
-    now = time.time()
-    if _token_cache["token"] and now < float(_token_cache["expires_at"]):
+    if _token_cache["token"] and time.time() < float(_token_cache["expires_at"]):
         return str(_token_cache["token"])
 
     response = await client.post(
@@ -45,23 +45,18 @@ async def _get_access_token(client: httpx.AsyncClient) -> str:
     response.raise_for_status()
     payload = response.json()
     _token_cache["token"] = payload["access_token"]
-    _token_cache["expires_at"] = now + payload.get("expires_in", 7200) - 60
-    logger.debug("eBay OAuth token refreshed")
+    _token_cache["expires_at"] = time.time() + payload.get("expires_in", 7200) - 60
     return str(_token_cache["token"])
-
-
-def _unavailable(reason: str) -> SourceResult:
-    return SourceResult(
-        source=Source.EBAY,
-        status=ScrapeStatus.UNAVAILABLE,
-        products=[],
-        error=reason,
-    )
 
 
 async def search_ebay(query: str, limit: int = 10) -> SourceResult:
     if not settings.ebay_enabled:
-        return _unavailable("eBay API not configured (set EBAY_CLIENT_ID / EBAY_CLIENT_SECRET)")
+        return SourceResult(
+            source=Source.EBAY,
+            status=ScrapeStatus.UNAVAILABLE,
+            products=[],
+            error="eBay API not configured (set EBAY_CLIENT_ID / EBAY_CLIENT_SECRET to enable)",
+        )
 
     try:
         async with httpx.AsyncClient() as client:
@@ -72,7 +67,7 @@ async def search_ebay(query: str, limit: int = 10) -> SourceResult:
                     "Authorization": f"Bearer {token}",
                     "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
                 },
-                params={"q": query, "limit": min(limit, 50)},
+                params={"q": query, "limit": limit},
                 timeout=settings.request_timeout_seconds,
             )
             response.raise_for_status()
@@ -87,20 +82,28 @@ async def search_ebay(query: str, limit: int = 10) -> SourceResult:
                     title=item["title"],
                     price=float(price_info["value"]),
                     currency=price_info.get("currency", "USD"),
+                    rating=None,
+                    review_count=None,
                     url=item["itemWebUrl"],
                     image_url=(item.get("image") or {}).get("imageUrl"),
                 )
                 products.append(product)
-            except (KeyError, ValueError, TypeError) as exc:
-                logger.debug("eBay: skipped malformed item: %s", exc)
-                continue
+            except (KeyError, ValueError, TypeError):
+                continue  # malformed item from the API itself - skip, don't guess
 
-        logger.info("eBay: %d products found for '%s'", len(products), query[:50])
         return SourceResult(source=Source.EBAY, status=ScrapeStatus.FRESH, products=products)
 
     except httpx.HTTPStatusError as exc:
-        logger.warning("eBay API HTTP error %d", exc.response.status_code)
-        return _unavailable(f"eBay API returned HTTP {exc.response.status_code}")
+        return SourceResult(
+            source=Source.EBAY,
+            status=ScrapeStatus.UNAVAILABLE,
+            products=[],
+            error=f"eBay API returned HTTP {exc.response.status_code}",
+        )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("eBay API error: %s", exc)
-        return _unavailable("eBay API request failed")
+        return SourceResult(
+            source=Source.EBAY,
+            status=ScrapeStatus.UNAVAILABLE,
+            products=[],
+            error=f"eBay API request failed: {exc}",
+        )
