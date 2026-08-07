@@ -1,17 +1,6 @@
-type ClassValue = string | number | boolean | null | undefined;
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]): string {
-  return inputs.filter(Boolean).join(" ");
-}
-
-export function formatPrice(price: number, currency: string = "INR"): string {
-  return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
-    style: "currency",
-    currency: currency,
-    maximumFractionDigits: 0,
-  }).format(price);
-}
-
-export function truncate(str: string, n: number): string {
-  return str.length > n ? str.slice(0, n - 1) + "…" : str;
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }

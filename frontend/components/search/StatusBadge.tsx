@@ -1,27 +1,21 @@
-import type { ScrapeStatus } from "@/types";
+import type { Status } from "@/types";
 
-const LABELS: Record<ScrapeStatus, string> = {
-  fresh: "Live",
-  stale: "Cached",
+const LABELS: Record<Status, string> = {
+  fresh:       "Live",
+  stale:       "Cached",
   unavailable: "Unavailable",
 };
 
-const DOT: Record<ScrapeStatus, string> = {
-  fresh: "status-fresh",
-  stale: "status-stale",
-  unavailable: "status-unavailable",
+const TITLES: Record<Status, string> = {
+  fresh:       "Scraped live just now",
+  stale:       "Live scrape failed — showing last known result",
+  unavailable: "No data available from this source right now",
 };
 
-const TITLES: Record<ScrapeStatus, string> = {
-  fresh: "Scraped successfully right now",
-  stale: "Live check failed – showing last successful result",
-  unavailable: "No current or cached data for this source",
-};
-
-export default function StatusBadge({ status }: { status: ScrapeStatus }) {
+export default function StatusBadge({ status }: { status: Status }) {
   return (
     <span className={`status-pill ${status}`} title={TITLES[status]}>
-      <span className={`status-dot ${DOT[status]}`} />
+      <span className={`status-dot dot-${status}`} />
       {LABELS[status]}
     </span>
   );

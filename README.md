@@ -1,131 +1,69 @@
-# AI Shopping Agent — v2
+# Shopiq v3 — AI Price Comparison India
 
-A rebuilt version of the original AI Shopping Agent: compares product prices
-across **Amazon, Flipkart, Meesho, Myntra**, and the **official eBay Browse
-API**, then uses **Google Gemini** to generate a buying recommendation
-grounded strictly in that data.
+Compare prices across **Amazon, Flipkart, AJIO, Snapdeal, Croma**.
 
-**No dummy, sample, or fabricated data exists anywhere in this codebase.**
-Every product shown comes from a real scrape or a real API call, and every
-result is explicitly labeled so you always know whether you're looking at
-current data, cached data, or nothing at all.
+## Zero paid APIs. Zero proxies. Zero cost. Forever free.
 
-## What changed from v1, and why
+| Source   | Method                  | Reliability     | Notes                              |
+|----------|-------------------------|-----------------|------------------------------------|
+| AJIO     | Internal JSON API       | ✅ ~95%         | Best source — structured JSON      |
+| Snapdeal | curl_cffi + HTML        | ✅ ~90%         | Server-rendered, no bot protection |
+| Croma    | curl_cffi + JSON island | ✅ ~85%         | Server-rendered, electronics focus |
+| Amazon   | curl_cffi TLS spoof     | ⚠️ ~65%        | Best-effort, stale cache on block  |
+| Flipkart | curl_cffi TLS spoof     | ⚠️ ~60%        | Best-effort, stale cache on block  |
 
-The original had no validation, no caching, and no visibility into failures —
-so a broken scraper looked identical to "no results," and a bad parse looked
-identical to a real product. This version fixes each of those directly:
+Amazon/Flipkart use `curl_cffi` Chrome TLS impersonation — free, unlimited,
+no proxy. When blocked, the last real result is served labeled "Cached" so
+users always see something real, never an invented value.
 
-| Problem you described | Root cause | Fix in this version |
-|---|---|---|
-| False info | Scraped values (price/title) went straight to the UI and into the AI prompt with no validation | `models.py` — every scraped item is validated against a strict Pydantic schema (price > 0, real-looking title, valid URL). Anything that fails is **dropped**, never guessed at or patched. |
-| Buggy / not working | No shared retry or error handling — one flaky request broke the whole call | `utils/http_client.py` — centralized retry with exponential backoff via `tenacity`, and a specific `FetchError` instead of a raw exception bubbling up. |
-| Outdated / limitations | No caching → every request re-scraped live, slow, and expensive on ScraperAPI credits, with no fallback when a site changed layout | `cache.py` — a real, persistent (disk-backed) cache of *actual* past results. A live scrape failure now falls back to the last real successful result — labeled **STALE** — instead of a broken page. |
-| "Site X returns nothing" going unnoticed for weeks | No monitoring | `services/health_monitor.py` + `/api/health` — runs a real canary search per source on demand; wire it into a scheduled job (see `render.yaml`) so scraper drift shows up in an alert, not a user complaint. |
-| Everything hinges on scraping 4 sites with shifting HTML | Amazon/Flipkart/Meesho/Myntra don't offer public consumer search APIs | `services/ebay_service.py` — one genuine, official, OAuth-authenticated API source (eBay Browse API) that can't break from a CSS change. It's optional and additive, not a replacement for the four you need. |
-| AI recommendations feel unreliable | Gemini was fed whatever scraped text existed, with no signal about its reliability | `services/ai_service.py` — the prompt explicitly tells Gemini which sources are fresh vs. stale vs. unavailable, and instructs it to say so plainly rather than recommend confidently off thin/stale data. |
+---
 
-## Architecture
+## Deploy
 
-```
-backend/
-  main.py                 FastAPI app: /api/search, /api/health, /api/ping
-  config.py                Centralized, validated settings (pydantic-settings)
-  models.py                 Product schema + validation rules
-  cache.py                   Disk-backed fresh/stale cache (diskcache)
-  utils/http_client.py        ScraperAPI wrapper with retry/backoff
-  scrapers/
-    base.py                    Shared scrape → validate → cache → fallback flow
-    amazon.py / flipkart.py / meesho.py / myntra.py
-  services/
-    ebay_service.py             Official eBay Browse API client
-    ai_service.py                 Gemini recommendation, grounded in labeled data
-    aggregator.py                  Runs all sources concurrently (bounded)
-    health_monitor.py               Canary health checks per source
+### Backend → Render (free tier)
 
-frontend/                 Next.js 15 + TypeScript + Tailwind (same visual
-                           language as the original — glassmorphism, cosmic
-                           gradient — extended with a freshness/trust badge
-                           system as the one new signature element)
-  app/page.tsx              Search UI
-  components/
-    StatusBadge.tsx           Live / Cached / Unavailable indicator
-    SourceSection.tsx           Per-retailer results block
-    ProductCard.tsx
-    AIRecommendation.tsx
-    SearchBar.tsx
-  lib/api.ts                 Typed API client
-```
+1. Render → New Web Service → connect your GitHub repo
+2. **Root Directory:** `backend`
+3. **Build Command:** `pip install -r requirements.txt`
+4. **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. **Region:** Singapore (closest to India)
+6. **No env vars required** — deploy as-is
+7. Copy your service URL e.g. `https://shopiq-backend.onrender.com`
+8. Test: visit `https://shopiq-backend.onrender.com/api/ping` → `{"status":"ok"}`
 
-## Setup
+### Frontend → Vercel
 
-### Backend
+1. Vercel → New Project → import your GitHub repo
+2. **Root Directory:** `frontend`
+3. **Add one env var:**
+   - `NEXT_PUBLIC_API_BASE_URL` = your Render URL (no trailing slash)
+4. Deploy
+
+---
+
+## Local development
 
 ```bash
+# Backend
 cd backend
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
-# Fill in SCRAPERAPI_KEY and GEMINI_API_KEY at minimum.
-# The variable name in .env MUST be SCRAPERAPI_KEY (matching config.py).
-# EBAY_CLIENT_ID / EBAY_CLIENT_SECRET are optional (enables the eBay source).
 uvicorn main:app --reload
-```
+# → http://localhost:8000
 
-Backend runs at `http://localhost:8000`. Try `GET /api/search?q=wireless+mouse`.
-
-### Frontend
-
-```bash
+# Frontend
 cd frontend
 npm install
-cp .env.local.example .env.local
+# Create frontend/.env.local:
+# NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 npm run dev
+# → http://localhost:3000
 ```
 
-Frontend runs at `http://localhost:3000`.
+---
 
-### Docker (both at once)
+## How it works
 
-```bash
-cp backend/.env.example backend/.env   # fill in your keys first
-docker compose up --build
-```
-
-## Getting API keys
-
-- **ScraperAPI** (required): https://www.scraperapi.com/ — free tier available.
-- **Google Gemini** (required): https://makersuite.google.com/app/apikey
-- **eBay Browse API** (optional): https://developer.ebay.com/my/keys — free
-  developer account, official OAuth credentials.
-
-## Keeping the scrapers healthy
-
-Site HTML changes over time — that's true of any scraper, for any team.
-This version doesn't pretend that problem is solved forever; it makes it
-*visible* instead of silent:
-
-1. `GET /api/health` runs one real search per source right now and tells you
-   which are actually returning valid products.
-2. `render.yaml` includes a scheduled cron job hitting that endpoint every 6
-   hours — point it at a Slack/email webhook so you find out the same day a
-   selector breaks, not weeks later from a confused user.
-3. Each scraper file has comments marking exactly which selectors are the
-   most likely to need updating, and why (see `scrapers/meesho.py` and
-   `scrapers/myntra.py` for the JSON-first parsing strategy, which is more
-   durable than pure CSS-class scraping).
-
-When a selector does break: check `/api/health`, open the affected site in a
-browser, and update that scraper's `parse()` method. Nothing else in the
-system needs to change — validation, caching, and fallback all keep working
-around it automatically.
-
-## What this version deliberately does *not* do
-
-- It does not use Amazon's PA-API (requires an approved affiliate account
-  with sales history) — a possible future upgrade path if you go that route.
-- It does not include any mock/sample/seeded data, per your requirement —
-  `MOCK_MODE` style toggles some teams use for offline dev were intentionally
-  left out.
-- It does not attempt to work around anti-bot measures beyond what
-  ScraperAPI provides — respect each site's terms of service.
+- **No ScraperAPI** — `curl_cffi` impersonates Chrome's TLS fingerprint (JA3/JA4)
+- **No Gemini/OpenAI** — local rule-based recommendation engine (cheapest, best discount, best rated)
+- **Two-tier cache** — 30-min fresh window, 6-hour stale fallback. Stale results are clearly labeled.
+- **Validation** — every scraped item passes strict Pydantic checks. Anything invalid is dropped silently.

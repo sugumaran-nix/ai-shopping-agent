@@ -1,37 +1,36 @@
-// ─── Backend response shapes (must match backend/models.py exactly) ───────────
-
-export type ScrapeStatus = "fresh" | "stale" | "unavailable";
+export type Source   = "amazon" | "flipkart" | "ajio" | "snapdeal" | "croma";
+export type Status   = "fresh" | "stale" | "unavailable";
+export type SortKey  = "price_asc" | "price_desc" | "rating" | "discount";
 
 export interface Product {
-  source: string;          // "amazon" | "flipkart" | "meesho" | "myntra" | "ebay"
-  title: string;
-  price: number;
-  currency: string;
-  rating: number | null;
-  review_count: number | null;
-  url: string;
-  image_url: string | null;
-  fetched_at: string;
+  source:          Source;
+  title:           string;
+  price:           number;
+  original_price:  number | null;
+  currency:        string;
+  discount_pct:    number | null;
+  rating:          number | null;
+  review_count:    number | null;
+  url:             string;
+  image_url:       string | null;
+  brand:           string | null;
+  fetched_at:      string;
 }
 
 export interface SourceResult {
-  source: string;
-  status: ScrapeStatus;
+  source:   Source;
+  status:   Status;
   products: Product[];
-  error: string | null;
-  fetched_at: string | null;
+  error:    string | null;
 }
 
 export interface SearchResponse {
-  query: string;
-  results: SourceResult[];          // per-source, each has its own products[]
+  query:             string;
+  results:           SourceResult[];
   ai_recommendation: string | null;
-  ai_error: string | null;
+  ai_error:          string | null;
+  total_products:    number;
 }
 
-// ─── Derived / UI helpers ──────────────────────────────────────────────────────
-
-/** Flat product with site attached — used by the product grid after aggregation */
-export interface FlatProduct extends Product {
-  site: string;  // same as source, aliased for legacy UI code
-}
+/** Flat product with source aliased as site — used by the product grid */
+export type FlatProduct = Product & { site: Source };
