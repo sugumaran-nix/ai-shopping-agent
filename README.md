@@ -1,4 +1,4 @@
-# Shopiq v3 — AI Price Comparison India
+# Shopiq — AI Price Comparison India
 
 Compare prices across **Amazon, Flipkart, AJIO, Snapdeal, Croma**.
 
