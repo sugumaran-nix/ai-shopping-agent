@@ -1,61 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, SlidersHorizontal } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 
-import SearchBar from "@/components/search/SearchBar";
-import ProductCard from "@/components/search/ProductCard";
-import AIAnalysis from "@/components/search/AIAnalysis";
-import SiteFilter from "@/components/search/SiteFilter";
-import EmptyState from "@/components/search/EmptyState";
-import ErrorState from "@/components/search/ErrorState";
-import { GridSkeleton, AnalysisSkeleton } from "@/components/search/SearchSkeleton";
-import StatusBadge from "@/components/search/StatusBadge";
+import SearchBar                          from "@/components/search/SearchBar";
+import ProductCard                        from "@/components/search/ProductCard";
+import AIAnalysis                         from "@/components/search/AIAnalysis";
+import { AnalysisSkeleton, GridSkeleton } from "@/components/search/SearchSkeleton";
+import { EmptyState, ErrorState }         from "@/components/search/States";
+import StatusBadge                        from "@/components/search/StatusBadge";
 
-import { searchProducts, ApiError, SITE_META } from "@/lib/api";
-import type { SearchResponse, FlatProduct, SourceResult } from "@/types";
+import { ApiError, searchProducts, SITE_META } from "@/lib/api";
+import type { FlatProduct, SearchResponse, Source, SourceResult, SortKey } from "@/types";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function flattenResults(results: SourceResult[]): FlatProduct[] {
-  return results.flatMap((r) =>
-    r.products.map((p) => ({ ...p, site: p.source }))
-  );
+function flatten(results: SourceResult[]): FlatProduct[] {
+  return results.flatMap(r => r.products.map(p => ({ ...p, site: p.source })));
 }
 
-type SortKey = "price_asc" | "price_desc" | "rating";
-
-function sortProducts(products: FlatProduct[], key: SortKey): FlatProduct[] {
+function applySort(products: FlatProduct[], key: SortKey): FlatProduct[] {
   return [...products].sort((a, b) => {
-    if (key === "price_asc") return a.price - b.price;
+    if (key === "price_asc")  return a.price - b.price;
     if (key === "price_desc") return b.price - a.price;
-    if (key === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
+    if (key === "rating")     return (b.rating ?? 0) - (a.rating ?? 0);
+    if (key === "discount")   return (b.discount_pct ?? 0) - (a.discount_pct ?? 0);
     return 0;
   });
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function SearchPageContent() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const initialQuery = params.get("q") ?? "";
+  const router  = useRouter();
+  const params  = useSearchParams();
+  const initQ   = params.get("q") ?? "";
 
-  const [data, setData] = useState<SearchResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortKey>("price_asc");
-  const [selectedSites, setSelectedSites] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [data,     setData]     = useState<SearchResponse | null>(null);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
+  const [sort,     setSort]     = useState<SortKey>("price_asc");
+  const [selected, setSelected] = useState<string[]>([]);
 
-  const abortRef = useRef<AbortController | null>(null);
-  const hasSearched = useRef(false);
+  const abortRef    = useRef<AbortController | null>(null);
+  const searchedRef = useRef(false);
 
+  // FIX: searchProducts takes a plain string, not an object
   const runSearch = useCallback(async (query: string) => {
     const q = query.trim();
-    if (!q) return;
+    if (q.length < 2) return;
 
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -64,70 +55,61 @@ export default function SearchPageContent() {
     setLoading(true);
     setError(null);
     setData(null);
-    setSelectedSites([]);
-
-    // Update URL without full navigation
-    router.replace(`/search?q=${encodeURIComponent(q)}`, { scroll: false });
+    setSelected([]);
+    router.replace(`/search?q=${encodeURIComponent(q)}`);
 
     try {
-      const result = await searchProducts({ query: q }, ctrl.signal);
+      const result = await searchProducts(q, ctrl.signal);
       setData(result);
-      // Pre-select all sites that returned at least one product
-      setSelectedSites(
+      setSelected(
         result.results
-          .filter((r) => r.products.length > 0)
-          .map((r) => r.source)
+          .filter(r => r.products.length > 0)
+          .map(r => r.source)
       );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Couldn't reach the search service. Make sure the backend is running."
-      );
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof ApiError ? e.message : "Search failed.");
     } finally {
       setLoading(false);
     }
   }, [router]);
 
-  // Run on first mount if URL has a query
   useEffect(() => {
-    if (initialQuery && !hasSearched.current) {
-      hasSearched.current = true;
-      runSearch(initialQuery);
+    if (initQ && !searchedRef.current) {
+      searchedRef.current = true;
+      runSearch(initQ);
     }
-  }, [initialQuery, runSearch]);
+  }, [initQ, runSearch]);
 
-  // Derived display data
-  const allFlat = data ? flattenResults(data.results) : [];
-  const filtered =
-    selectedSites.length > 0
-      ? allFlat.filter((p) => selectedSites.includes(p.site))
-      : allFlat;
-  const sorted = sortProducts(filtered, sort);
-  const hasProducts = allFlat.length > 0;
+  const allFlat   = data ? flatten(data.results) : [];
+  const filtered  = selected.length
+    ? allFlat.filter(p => selected.includes(p.site))
+    : allFlat;
+  const displayed = applySort(filtered, sort);
+  const hasProds  = allFlat.length > 0;
+
   const staleSources = data?.results
-    .filter((r) => r.status === "stale")
-    .map((r) => SITE_META[r.source]?.label ?? r.source) ?? [];
+    .filter(r => r.status === "stale")
+    .map(r => SITE_META[r.source as Source]?.label ?? r.source) ?? [];
 
-  function toggleSite(site: string) {
-    setSelectedSites((prev) =>
-      prev.includes(site) ? prev.filter((s) => s !== site) : [...prev, site]
+  function toggleSite(s: string) {
+    setSelected(prev =>
+      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
+      {/* Sticky header */}
       <header className="sticky top-0 z-30 glass border-b border-white/[0.05]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="p-2 rounded-xl transition-colors glass-card hover:border-white/15 flex-shrink-0"
+            className="p-2 rounded-xl glass-card flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Back to home"
           >
-            <ArrowLeft className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
+            <ArrowLeft className="w-4 h-4 text-secondary" />
           </button>
           <div className="flex-1">
             <SearchBar
@@ -139,25 +121,22 @@ export default function SearchPageContent() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
 
-        {/* Loading */}
         {loading && (
-          <div className="flex flex-col gap-5">
+          <>
             <AnalysisSkeleton />
-            <GridSkeleton count={8} />
-          </div>
+            <GridSkeleton count={10} />
+          </>
         )}
 
-        {/* Error */}
-        {error && !loading && (
+        {!loading && error && (
           <ErrorState
             message={error}
             onRetry={() => runSearch(params.get("q") ?? "")}
           />
         )}
 
-        {/* Results */}
         {!loading && !error && data && (
           <AnimatePresence mode="wait">
             <motion.div
@@ -166,101 +145,87 @@ export default function SearchPageContent() {
               animate={{ opacity: 1 }}
               className="flex flex-col gap-5"
             >
-              {/* AI panel */}
               <AIAnalysis
                 recommendation={data.ai_recommendation}
                 error={data.ai_error}
                 staleSources={staleSources}
               />
 
-              {/* Controls row */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {sorted.length}
-                  </span>
-                  {sorted.length !== allFlat.length && (
-                    <span>/ {allFlat.length}</span>
-                  )}
-                  &nbsp;products for &ldquo;{data.query}&rdquo;
+              {/* Source filter + sort */}
+              {hasProds && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {data.results.map(r => (
+                    <button
+                      key={r.source}
+                      type="button"
+                      onClick={() => toggleSite(r.source)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                      style={{
+                        background: selected.includes(r.source)
+                          ? (SITE_META[r.source as Source]?.bg ?? "rgba(124,58,237,0.12)")
+                          : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${selected.includes(r.source)
+                          ? (SITE_META[r.source as Source]?.color ?? "#7C3AED") + "45"
+                          : "rgba(255,255,255,0.07)"}`,
+                        color: selected.includes(r.source)
+                          ? (SITE_META[r.source as Source]?.color ?? "#A78BFA")
+                          : "rgba(240,240,255,0.5)",
+                      }}
+                      aria-pressed={selected.includes(r.source)}
+                    >
+                      {SITE_META[r.source as Source]?.label ?? r.source}
+                      <StatusBadge status={r.status} />
+                      <span className="text-[10px] opacity-60">({r.products.length})</span>
+                    </button>
+                  ))}
 
-                  {/* Per-source status pills */}
-                  <div className="hidden sm:flex items-center gap-1.5 ml-2">
-                    {data.results.map((r) => (
-                      <StatusBadge key={r.source} status={r.status} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Sort */}
                   <select
                     value={sort}
-                    onChange={(e) => setSort(e.target.value as SortKey)}
-                    className="text-xs rounded-xl px-3 py-2 outline-none cursor-pointer glass"
+                    onChange={e => setSort(e.target.value as SortKey)}
+                    className="ml-auto text-xs rounded-xl px-3 py-2 outline-none glass min-h-[44px]"
                     style={{
-                      color: "var(--text-secondary)",
-                      border: "1px solid var(--glass-border)",
+                      color: "rgba(240,240,255,0.8)",
+                      border: "1px solid rgba(255,255,255,0.08)",
                     }}
                     aria-label="Sort products"
                   >
                     <option value="price_asc">Price: Low → High</option>
                     <option value="price_desc">Price: High → Low</option>
                     <option value="rating">Best Rated</option>
+                    <option value="discount">Best Discount</option>
                   </select>
-
-                  {/* Filter toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setShowFilters((v) => !v)}
-                    className="btn-ghost text-xs py-2 px-3"
-                    aria-expanded={showFilters}
-                    aria-label="Toggle site filters"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    Filter
-                  </button>
                 </div>
-              </div>
+              )}
 
-              {/* Site filters */}
-              <AnimatePresence>
-                {showFilters && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <SiteFilter
-                      results={data.results}
-                      selected={selectedSites}
-                      onToggle={toggleSite}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Empty state */}
-              {!hasProducts ? (
+              {!hasProds ? (
                 <EmptyState
                   query={data.query}
                   onReset={() => router.push("/")}
                   onSearch={runSearch}
                 />
-              ) : sorted.length === 0 ? (
-                <EmptyState
-                  query={data.query}
-                  onReset={() => setSelectedSites(data.results.filter((r) => r.products.length > 0).map((r) => r.source))}
-                  onSearch={runSearch}
-                />
+              ) : displayed.length === 0 ? (
+                <div className="text-center py-12 text-secondary text-sm">
+                  No results for selected stores.{" "}
+                  <button
+                    type="button"
+                    className="text-violet-400 underline underline-offset-2"
+                    onClick={() =>
+                      setSelected(
+                        data.results
+                          .filter(r => r.products.length > 0)
+                          .map(r => r.source)
+                      )
+                    }
+                  >
+                    Show all
+                  </button>
+                </div>
               ) : (
-                // Product grid
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                  {sorted.map((product, i) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {displayed.map((p, i) => (
                     <ProductCard
-                      key={`${product.source}-${product.url}-${i}`}
-                      product={product}
+                      key={`${p.source}-${p.url}-${i}`}
+                      product={p}
                       index={i}
                     />
                   ))}
@@ -270,11 +235,10 @@ export default function SearchPageContent() {
           </AnimatePresence>
         )}
 
-        {/* Initial state — no search run yet */}
         {!loading && !error && !data && (
-          <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              Enter a product above to compare prices across stores.
+          <div className="flex items-center justify-center flex-1 py-20">
+            <p className="text-sm text-muted">
+              Enter a product above to compare prices.
             </p>
           </div>
         )}
