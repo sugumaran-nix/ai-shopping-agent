@@ -116,7 +116,7 @@ function SummaryBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-2">
       <div className="flex items-center gap-3 text-sm">
-        <span className="font-semibold text-gray-800">"{data.query}"</span>
+        <span className="font-semibold text-gray-800">&ldquo;{data.query}&rdquo;</span>
         <span className="text-gray-300">·</span>
         {counts.fresh > 0 && (
           <span className="flex items-center gap-1 text-green-600">
