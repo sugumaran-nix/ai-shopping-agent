@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: ai-shopping-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /api/ping
+    envVars:
+      - key: SCRAPERAPI_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EBAY_CLIENT_ID
+        sync: false
+      - key: EBAY_CLIENT_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: CACHE_DIR
+        value: /opt/render/project/src/.cache
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: CACHE_TTL_SECONDS
+        value: "1800"
+      - key: STALE_SERVE_TTL_SECONDS
+        value: "21600"
+      - key: CACHE_MAX_SIZE_BYTES
+        value: "524288000"
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "15"
+      - key: MAX_RETRIES
+        value: "2"
+      - key: CONCURRENT_SCRAPE_LIMIT
+        value: "4"
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: AI_MAX_PRODUCTS_PER_SOURCE
+        value: "10"
+      - key: AI_REQUEST_TIMEOUT_SECONDS
+        value: "30"
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+    disk:
+      name: cache
+      mountPath: /opt/render/project/src/.cache
+      sizeGB: 1
