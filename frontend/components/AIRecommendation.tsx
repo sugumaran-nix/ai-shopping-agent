@@ -1,3 +1,5 @@
+import { Sparkles, Bot } from 'lucide-react'
+
 export function AIRecommendation({
   recommendation,
   error,
@@ -10,9 +12,11 @@ export function AIRecommendation({
   if (error && !recommendation) {
     return (
       <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200">
-        <span className="text-lg flex-shrink-0 mt-0.5" aria-hidden>🤖</span>
+        <Bot className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" aria-hidden />
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">AI Recommendation</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            AI Recommendation
+          </p>
           <p className="text-sm text-gray-500 mt-0.5">{error}</p>
         </div>
       </div>
@@ -20,12 +24,17 @@ export function AIRecommendation({
   }
 
   return (
-    <div className="rounded-2xl border border-purple-200 overflow-hidden shadow-sm"
-         role="region" aria-label="AI buying recommendation">
-      <div className="px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center gap-2">
-        <span className="text-white text-base" aria-hidden>✨</span>
+    <div
+      className="rounded-2xl border border-purple-200 overflow-hidden shadow-sm"
+      role="region"
+      aria-label="AI buying recommendation"
+    >
+      <div className="px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600
+                      flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-white" aria-hidden />
         <span className="text-white font-semibold text-sm">AI Recommendation</span>
-        <span className="ml-auto text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">
+        <span className="ml-auto text-xs bg-white/20 text-white px-2 py-0.5
+                         rounded-full font-medium">
           Gemini
         </span>
       </div>

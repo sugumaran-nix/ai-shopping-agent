@@ -1,15 +1,15 @@
 'use client'
 import { useRef } from 'react'
+import { Search, Loader2 } from 'lucide-react'
 
 interface Props {
   value: string
   onChange: (v: string) => void
   onSearch: (q: string) => void
   loading: boolean
-  disabled?: boolean
 }
 
-export function SearchBar({ value, onChange, onSearch, loading, disabled = false }: Props) {
+export function SearchBar({ value, onChange, onSearch, loading }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const submit = () => {
@@ -29,7 +29,7 @@ export function SearchBar({ value, onChange, onSearch, loading, disabled = false
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          disabled={loading || disabled}
+          disabled={loading}
           placeholder="e.g. wireless mouse, running shoes, iPhone 15..."
           autoFocus
           maxLength={200}
@@ -41,34 +41,24 @@ export function SearchBar({ value, onChange, onSearch, loading, disabled = false
         />
         <button
           onClick={submit}
-          disabled={loading || disabled || value.trim().length < 2}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+          disabled={loading || value.trim().length < 2}
+          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800
                      text-white font-semibold text-sm rounded-xl shadow-sm
                      disabled:opacity-50 disabled:cursor-not-allowed
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                      transition-colors whitespace-nowrap flex items-center gap-2"
+          aria-label={loading ? 'Searching…' : 'Search'}
         >
-          {loading ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-              Searching…
-            </>
-          ) : (
-            <>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
-              Search
-            </>
-          )}
+          {loading
+            ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden /> Searching…</>
+            : <><Search className="w-4 h-4" aria-hidden /> Search</>
+          }
         </button>
       </div>
       {value.trim().length > 0 && value.trim().length < 2 && (
-        <p className="mt-1 text-xs text-amber-600 pl-1">Enter at least 2 characters</p>
+        <p className="mt-1 text-xs text-amber-600 pl-1" role="alert">
+          Enter at least 2 characters
+        </p>
       )}
     </div>
   )

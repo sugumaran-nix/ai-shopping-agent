@@ -7,18 +7,29 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /api/ping
     envVars:
+      # ── REQUIRED — set these in the Render dashboard ─────────────────────
       - key: SCRAPERAPI_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+
+      # ── CORS — MUST be set to your Vercel URL after first deploy ─────────
+      # Example: https://ai-shopping-agent-abc.vercel.app
+      # Without this, browsers will block all requests (CORS error).
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # ── Optional ──────────────────────────────────────────────────────────
       - key: EBAY_CLIENT_ID
         sync: false
       - key: EBAY_CLIENT_SECRET
         sync: false
-      - key: ALLOWED_ORIGINS
-        sync: false
+
+      # ── Cache — disk mount path must match the disk.mountPath below ───────
       - key: CACHE_DIR
         value: /opt/render/project/src/.cache
+
+      # ── Runtime config ────────────────────────────────────────────────────
       - key: ENVIRONMENT
         value: production
       - key: LOG_LEVEL
@@ -43,6 +54,7 @@ services:
         value: "30"
       - key: PYTHON_VERSION
         value: "3.12.3"
+
     disk:
       name: cache
       mountPath: /opt/render/project/src/.cache

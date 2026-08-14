@@ -23,13 +23,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full flex flex-col bg-gray-50">
-
         {/* Skip to content */}
-        <a href="#main"
-           className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3
-                      focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600
-                      focus:text-white focus:rounded-lg focus:text-sm focus:font-medium
-                      focus:shadow-lg focus:outline-none">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3
+                     focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white
+                     focus:rounded-lg focus:text-sm focus:font-medium focus:shadow-lg
+                     focus:outline-none"
+        >
           Skip to main content
         </a>
 
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center
-                              text-white text-sm font-bold shadow-sm flex-shrink-0">
+                              text-white text-xs font-bold shadow-sm flex-shrink-0 tracking-tight">
                 AI
               </div>
               <div>
@@ -50,12 +51,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </span>
               </div>
             </div>
-            <nav className="hidden sm:flex items-center gap-4">
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer"
-                 className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                GitHub
-              </a>
-            </nav>
           </div>
         </header>
 
@@ -72,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Prices scraped live from public listings. Not affiliated with any marketplace.
               Always verify before buying.
             </p>
-            <p>Built with Next.js + FastAPI + Gemini</p>
+            <p>Next.js · FastAPI · Gemini</p>
           </div>
         </footer>
       </body>

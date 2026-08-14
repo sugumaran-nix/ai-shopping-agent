@@ -1,10 +1,10 @@
 import Image from 'next/image'
+import { ExternalLink, Star, ShoppingBag } from 'lucide-react'
 import type { Product } from '@/lib/api'
 import { formatPrice } from '@/lib/api'
 
 export function ProductCard({ product }: { product: Product }) {
   const price = formatPrice(product.price, product.currency)
-
   return (
     <a
       href={product.url}
@@ -19,11 +19,18 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="relative flex-shrink-0 w-16 h-16 rounded-lg bg-gray-50
                       border border-gray-100 overflow-hidden">
         {product.image_url ? (
-          <Image src={product.image_url} alt="" fill sizes="64px"
-                 className="object-contain p-0.5" unoptimized />
+          <Image
+            src={product.image_url}
+            alt=""
+            fill
+            sizes="64px"
+            className="object-contain p-0.5"
+            unoptimized
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-2xl text-gray-200"
-               aria-hidden>📦</div>
+          <div className="w-full h-full flex items-center justify-center text-gray-200">
+            <ShoppingBag className="w-6 h-6" aria-hidden />
+          </div>
         )}
       </div>
 
@@ -37,20 +44,24 @@ export function ProductCard({ product }: { product: Product }) {
           <div>
             <p className="text-sm font-bold text-gray-900 tabular-nums">{price}</p>
             {product.rating !== null && (
-              <p className="text-[11px] text-gray-400 mt-0.5 tabular-nums">
-                ⭐ {product.rating.toFixed(1)}
+              <p className="flex items-center gap-0.5 text-[11px] text-gray-400 mt-0.5 tabular-nums">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" aria-hidden />
+                <span aria-label={`${product.rating} out of 5 stars`}>
+                  {product.rating.toFixed(1)}
+                </span>
                 {product.review_count !== null && (
-                  <span className="ml-1">({product.review_count.toLocaleString('en-IN')})</span>
+                  <span className="ml-0.5 text-gray-300">
+                    ({product.review_count.toLocaleString('en-IN')})
+                  </span>
                 )}
               </p>
             )}
           </div>
-          <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-400 flex-shrink-0
-                          transition-colors mb-0.5"
-               fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-          </svg>
+          <ExternalLink
+            className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-400 flex-shrink-0
+                       transition-colors mb-0.5"
+            aria-hidden
+          />
         </div>
       </div>
     </a>
