@@ -60,11 +60,6 @@ class Settings(BaseSettings):
             raise ValueError("must be a positive integer")
         return v
 
-    @field_validator("rate_limit_per_minute", mode="before")
-    @classmethod
-    def valid_rate_limit(cls, v: object) -> object:
-        return v  # optional field — skip if not present
-
     @model_validator(mode="after")
     def warn_on_startup(self) -> "Settings":
         missing = [k for k, v in [
