@@ -1,51 +1,85 @@
 """
 Two-tier persistent disk cache (diskcache).
 
-Tier 1 — fresh  (age < cache_ttl_seconds):        serve directly, skip network
-Tier 2 — stale  (age < stale_serve_ttl_seconds):  serve as fallback if live scrape fails
-Expired (age >= stale_serve_ttl_seconds):          delete on read, treat as miss
-
-The diskcache instance is created lazily via _get_cache() so that the CACHE_DIR
-environment variable is guaranteed to be loaded before the directory is created.
+On Render free tier there is no persistent disk. The cache directory is
+created automatically at startup. If it cannot be created or written to
+(permissions, read-only filesystem), the cache silently degrades to a
+no-op — scrapers still work, they just re-fetch every time.
 """
 from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import time
 from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Optional
 
-from diskcache import Cache
-
 from config import get_settings
 
 logger = logging.getLogger("cache")
 
-_cache_instance: Cache | None = None
+_cache_instance: Any = None   # diskcache.Cache or _NoOpCache
 _cache_lock = Lock()
-
-
-def _get_cache() -> Cache:
-    """Return the singleton Cache, creating it on first call."""
-    global _cache_instance
-    if _cache_instance is None:
-        with _cache_lock:
-            if _cache_instance is None:
-                s = get_settings()
-                _cache_instance = Cache(s.cache_dir, size_limit=s.cache_max_size_bytes)
-    return _cache_instance
-
 
 _stats_lock = Lock()
 _stats: dict[str, int] = {"hits_fresh": 0, "hits_stale": 0, "misses": 0, "sets": 0}
 
 
+# ── No-op fallback ────────────────────────────────────────────────────────────
+
+class _NoOpCache:
+    """Used when the disk cache directory cannot be created or written to."""
+    def get(self, key: str, default: Any = None) -> Any:  # noqa: ANN401
+        return default
+    def set(self, key: str, value: Any) -> None: pass     # noqa: ANN401
+    def delete(self, key: str) -> None: pass
+    def clear(self) -> None: pass
+    def volume(self) -> int: return 0
+    def __len__(self) -> int: return 0
+
+
+def _get_cache() -> Any:  # noqa: ANN401
+    """Return the singleton cache, creating it on first call."""
+    global _cache_instance
+    if _cache_instance is not None:
+        return _cache_instance
+
+    with _cache_lock:
+        if _cache_instance is not None:
+            return _cache_instance
+
+        s = get_settings()
+        cache_dir = s.cache_dir
+
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            # Quick write test
+            test_path = os.path.join(cache_dir, ".write_test")
+            with open(test_path, "w") as f:
+                f.write("ok")
+            os.remove(test_path)
+
+            from diskcache import Cache
+            _cache_instance = Cache(cache_dir, size_limit=s.cache_max_size_bytes)
+            logger.info("Cache initialised at %s (max %d MB)", cache_dir, s.cache_max_size_bytes // 1_000_000)
+
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Cache directory %s not writable (%s) — running without cache. "
+                "Scrapers will re-fetch on every request.",
+                cache_dir, exc,
+            )
+            _cache_instance = _NoOpCache()
+
+    return _cache_instance
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def _key(source: str, query: str) -> str:
-    normalized = query.strip().lower()
-    digest = hashlib.sha256(normalized.encode()).hexdigest()
-    return f"{source}:{digest}"
+    return f"{source}:{hashlib.sha256(query.strip().lower().encode()).hexdigest()}"
 
 
 @dataclass
@@ -60,11 +94,9 @@ class CacheEntry:
 
 
 def get(source: str, query: str) -> Optional[CacheEntry]:
-    """Return a CacheEntry within the stale window, or None on miss/expiry."""
     s = get_settings()
     cache = _get_cache()
-    key = _key(source, query)
-    record = cache.get(key)
+    record = cache.get(_key(source, query))
 
     if record is None:
         with _stats_lock:
@@ -75,7 +107,7 @@ def get(source: str, query: str) -> Optional[CacheEntry]:
     age = time.time() - stored_at
 
     if age > s.stale_serve_ttl_seconds:
-        cache.delete(key)
+        cache.delete(_key(source, query))
         with _stats_lock:
             _stats["misses"] += 1
         return None
@@ -83,20 +115,17 @@ def get(source: str, query: str) -> Optional[CacheEntry]:
     is_fresh = age <= s.cache_ttl_seconds
     with _stats_lock:
         _stats["hits_fresh" if is_fresh else "hits_stale"] += 1
-
     return CacheEntry(data=data, stored_at=stored_at, is_fresh=is_fresh)
 
 
 def store(source: str, query: str, data: Any) -> None:
-    """Persist a successfully scraped result."""
     cache = _get_cache()
-    key = _key(source, query)
     try:
-        cache.set(key, (data, time.time()))
+        cache.set(_key(source, query), (data, time.time()))
         with _stats_lock:
             _stats["sets"] += 1
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Cache write failed for %s: %s", key[:40], exc)
+        logger.warning("Cache write failed for %s: %s", source, exc)
 
 
 def get_stats() -> dict:
@@ -110,11 +139,11 @@ def get_stats() -> dict:
             "hit_rate_pct": round(hit_rate * 100, 1),
             "disk_size_bytes": cache.volume(),
             "entry_count": len(cache),
+            "cache_available": not isinstance(cache, _NoOpCache),
         }
 
 
 def clear_all() -> int:
-    """Clear every entry. Returns count cleared."""
     cache = _get_cache()
     count = len(cache)
     cache.clear()

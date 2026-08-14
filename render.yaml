@@ -7,15 +7,14 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /api/ping
     envVars:
-      # ── REQUIRED — set these in the Render dashboard ─────────────────────
+      # ── REQUIRED — set these in the Render dashboard ──────────────────────
       - key: SCRAPERAPI_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
 
-      # ── CORS — MUST be set to your Vercel URL after first deploy ─────────
+      # ── CORS — set to your exact Vercel URL ───────────────────────────────
       # Example: https://ai-shopping-agent-abc.vercel.app
-      # Without this, browsers will block all requests (CORS error).
       - key: ALLOWED_ORIGINS
         sync: false
 
@@ -25,11 +24,13 @@ services:
       - key: EBAY_CLIENT_SECRET
         sync: false
 
-      # ── Cache — disk mount path must match the disk.mountPath below ───────
+      # ── Cache — /tmp is always writable on Render free tier ───────────────
+      # Note: /tmp is ephemeral (cleared on redeploy/restart).
+      # Upgrade to a paid Render plan and add a Disk to get persistent cache.
       - key: CACHE_DIR
-        value: /opt/render/project/src/.cache
+        value: /tmp/cache
 
-      # ── Runtime config ────────────────────────────────────────────────────
+      # ── Runtime ───────────────────────────────────────────────────────────
       - key: ENVIRONMENT
         value: production
       - key: LOG_LEVEL
@@ -54,8 +55,3 @@ services:
         value: "30"
       - key: PYTHON_VERSION
         value: "3.12.3"
-
-    disk:
-      name: cache
-      mountPath: /opt/render/project/src/.cache
-      sizeGB: 1
