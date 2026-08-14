@@ -1,131 +1,107 @@
 """
-Myntra search-results scraper.
+Myntra search scraper.
 
-Myntra is JS-rendered. Uses ScraperAPI render=true.
+Uses Myntra's internal search API (same one their website calls via XHR).
+Much more reliable than scraping the JS-rendered page.
 """
 from __future__ import annotations
 
-import json
 import logging
-import re
-from urllib.parse import quote_plus
+from urllib.parse import quote
 
-from bs4 import BeautifulSoup
+import httpx
 
-from models import Source
-from scrapers.base import BaseScraper
-from utils.headers import clean_price, make_absolute_url
+from models import Source, ScrapeStatus, SourceResult, Product
 
-_BASE = "https://www.myntra.com"
 logger = logging.getLogger("scraper.myntra")
 
+_API_URL = "https://www.myntra.com/gateway/v2/search/{query}"
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "Referer": "https://www.myntra.com/",
+    "Origin": "https://www.myntra.com",
+    "X-Requested-With": "XMLHttpRequest",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+}
 
-class MyntraScraper(BaseScraper):
+
+class MyntraScraper:
     source = Source.MYNTRA
-    render_js = True
-    country_code = "in"
 
-    def build_search_url(self, query: str) -> str:
-        # Myntra uses slug-style URLs
-        slug = re.sub(r"\s+", "-", query.strip().lower())
-        return f"{_BASE}/{quote_plus(slug)}"
+    async def search(self, query: str) -> SourceResult:
+        import cache as cache_module
+        cached = cache_module.get(self.source.value, query)
 
-    def parse(self, html: str) -> list[dict]:
-        soup = BeautifulSoup(html, "lxml")
-
-        # Try window.__myx JSON blob first
-        for script in soup.find_all("script"):
-            text = script.string or ""
-            match = re.search(r"window\.__myx\s*=\s*(\{.*?\});", text, re.DOTALL)
-            if match:
-                try:
-                    data = json.loads(match.group(1))
-                    products = self._from_window_myx(data)
-                    if products:
-                        logger.debug("Myntra: got %d products from window.__myx", len(products))
-                        return products
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug("Myntra window.__myx failed: %s", exc)
-
-        # HTML fallback
-        results = []
-        cards = (
-            soup.select("li.product-base")
-            or soup.select("div[class*='product-base']")
-            or soup.select("li[class*='results-base']")
-        )
-
-        logger.debug("Myntra: found %d HTML cards", len(cards))
-
-        for card in cards:
-            brand_el = card.select_one("h3.product-brand")
-            name_el = card.select_one("h4.product-product") or card.select_one("h4")
-            price_el = (
-                card.select_one("span.product-discountedPrice")
-                or card.select_one("div.product-price span")
-                or card.select_one("span[class*='price']")
-            )
-            link_el = card.select_one("a")
-
-            if not name_el or not price_el or not link_el:
-                continue
-
-            price_text = re.sub(r"[^\d.]", "", price_el.get_text(strip=True))
-            price = clean_price(price_text)
-            if not price:
-                continue
-
-            brand = brand_el.get_text(strip=True) if brand_el else ""
-            name = name_el.get_text(strip=True)
-            title = f"{brand} {name}".strip() if brand else name
-
-            href = link_el.get("href", "")
-            url = make_absolute_url(href, _BASE)
-            img_el = card.select_one("img")
-
-            results.append({
-                "title": title,
-                "price": price,
-                "currency": "INR",
-                "rating": None,
-                "review_count": None,
-                "url": url or _BASE,
-                "image_url": img_el.get("src") if img_el else None,
-            })
-
-        return results
-
-    @staticmethod
-    def _from_window_myx(data: dict) -> list[dict]:
-        results = []
         try:
-            items = (
-                data.get("searchData", {}).get("results", {}).get("products", [])
-                or data.get("data", {}).get("products", [])
+            products = await self._fetch(query)
+            if not products:
+                raise ValueError("0 products returned from Myntra API")
+
+            cache_module.store(
+                self.source.value, query,
+                [p.model_dump(mode="json") for p in products],
             )
-            for item in items:
-                brand = item.get("brand", "")
-                product = item.get("product", "") or item.get("name", "")
-                title = f"{brand} {product}".strip() if brand else product
-                price_raw = item.get("discountedPrice") or item.get("price")
-                landing = item.get("landingPageUrl", "")
+            return SourceResult(
+                source=self.source,
+                status=ScrapeStatus.FRESH,
+                products=products,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Myntra failed: %s", exc)
+            if cached:
+                prods = []
+                for p in cached.data:
+                    try:
+                        prods.append(Product(**p))
+                    except Exception:  # noqa: BLE001
+                        pass
+                return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
+            return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
+
+    async def _fetch(self, query: str) -> list[Product]:
+        url = f"https://www.myntra.com/gateway/v2/search/{quote(query)}"
+        params = {
+            "p": 1,
+            "rows": 20,
+            "o": 0,
+            "plaEnabled": False,
+        }
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url, params=params, headers=_HEADERS)
+            resp.raise_for_status()
+            data = resp.json()
+
+        products = []
+        items = (
+            data.get("products", [])
+            or data.get("response", {}).get("products", [])
+        )
+        for item in items:
+            try:
+                brand = item.get("brand") or item.get("brandName", "")
+                name = item.get("product") or item.get("productName", "")
+                title = f"{brand} {name}".strip() if brand else name
+                price_raw = item.get("discountedPrice") or item.get("price", 0)
+                landing = item.get("landingPageUrl") or item.get("slugV2", "")
                 if not title or not price_raw:
                     continue
-                try:
-                    price = float(price_raw)
-                except (ValueError, TypeError):
-                    continue
+                price = float(price_raw)
                 if price <= 0:
                     continue
-                results.append({
-                    "title": title,
-                    "price": price,
-                    "currency": "INR",
-                    "rating": item.get("rating"),
-                    "review_count": item.get("ratingCount"),
-                    "url": f"{_BASE}/{landing}" if landing else _BASE,
-                    "image_url": item.get("searchImage"),
-                })
-        except Exception:  # noqa: BLE001
-            pass
-        return results
+                products.append(Product(
+                    source=self.source,
+                    title=title,
+                    price=price,
+                    currency="INR",
+                    rating=item.get("rating"),
+                    review_count=item.get("ratingCount"),
+                    url=f"https://www.myntra.com/{landing}" if landing else "https://www.myntra.com",
+                    image_url=item.get("searchImage"),
+                ))
+            except Exception:  # noqa: BLE001
+                continue
+        return products

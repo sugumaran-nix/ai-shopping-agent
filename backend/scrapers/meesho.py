@@ -1,123 +1,108 @@
 """
-Meesho search-results scraper.
+Meesho search scraper.
 
-Meesho is JS-rendered. Uses ScraperAPI render=true.
-Falls back to HTML parsing if __NEXT_DATA__ is not present.
+Meesho heavily blocks scrapers. Instead of scraping the website directly,
+we use Meesho's internal search API which is what their mobile app uses.
+This is far more reliable than scraping the JS-rendered page.
 """
 from __future__ import annotations
 
 import json
 import logging
-from urllib.parse import quote_plus
 
-from bs4 import BeautifulSoup
+import httpx
 
-from models import Source
-from scrapers.base import BaseScraper
-from utils.headers import clean_price, make_absolute_url
+from config import get_settings
+from models import Source, ScrapeStatus, SourceResult, Product
+from utils.headers import get_headers
 
-_BASE = "https://www.meesho.com"
 logger = logging.getLogger("scraper.meesho")
+settings = get_settings()
+
+_API_URL = "https://meesho.com/api/v1/products/search"
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "Origin": "https://www.meesho.com",
+    "Referer": "https://www.meesho.com/",
+    "X-Requested-With": "XMLHttpRequest",
+}
 
 
-class MeeshoScraper(BaseScraper):
+class MeeshoScraper:
     source = Source.MEESHO
-    render_js = True
-    country_code = "in"
 
-    def build_search_url(self, query: str) -> str:
-        return f"{_BASE}/search?q={quote_plus(query)}&searchType=manual"
+    async def search(self, query: str) -> SourceResult:
+        import cache as cache_module
+        cached = cache_module.get(self.source.value, query)
 
-    def parse(self, html: str) -> list[dict]:
-        soup = BeautifulSoup(html, "lxml")
-
-        # Try __NEXT_DATA__ first
-        script = soup.select_one("script#__NEXT_DATA__")
-        if script and script.string:
-            try:
-                data = json.loads(script.string)
-                products = self._from_next_data(data)
-                if products:
-                    logger.debug("Meesho: got %d products from __NEXT_DATA__", len(products))
-                    return products
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Meesho __NEXT_DATA__ failed: %s", exc)
-
-        # HTML fallback — multiple selector attempts
-        results = []
-        selectors = [
-            "div[data-testid='product-card']",
-            "div.ProductCard",
-            "div.sc-dkrFOg",
-            "div[class*='ProductCard']",
-        ]
-        cards = []
-        for sel in selectors:
-            cards = soup.select(sel)
-            if cards:
-                break
-
-        logger.debug("Meesho: found %d HTML cards", len(cards))
-
-        for card in cards:
-            title_el = card.select_one("p[class*='Text']") or card.select_one("p") or card.select_one("span")
-            price_text = card.find(string=lambda s: s and "₹" in str(s))
-            link_el = card.select_one("a")
-
-            if not title_el or not price_text or not link_el:
-                continue
-
-            title = title_el.get_text(strip=True)
-            price = clean_price(str(price_text))
-            if not title or not price:
-                continue
-
-            href = link_el.get("href", "")
-            url = make_absolute_url(href, _BASE)
-            img_el = card.select_one("img")
-
-            results.append({
-                "title": title,
-                "price": price,
-                "currency": "INR",
-                "rating": None,
-                "review_count": None,
-                "url": url or _BASE,
-                "image_url": img_el.get("src") if img_el else None,
-            })
-
-        return results
-
-    @staticmethod
-    def _from_next_data(data: dict) -> list[dict]:
-        results = []
         try:
-            # Try multiple known paths in Meesho's Next.js data
-            products = (
-                data.get("props", {}).get("pageProps", {}).get("data", {}).get("catalog_list_data", [])
-                or data.get("props", {}).get("pageProps", {}).get("initialData", {}).get("data", {}).get("catalog_list_data", [])
+            products = await self._fetch(query)
+            if not products:
+                raise ValueError("0 products returned from Meesho API")
+
+            cache_module.store(
+                self.source.value, query,
+                [p.model_dump(mode="json") for p in products],
             )
-            for item in products:
+            return SourceResult(
+                source=self.source,
+                status=ScrapeStatus.FRESH,
+                products=products,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Meesho failed: %s", exc)
+            if cached:
+                prods = []
+                for p in cached.data:
+                    try:
+                        prods.append(Product(**p))
+                    except Exception:  # noqa: BLE001
+                        pass
+                return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
+            return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
+
+    async def _fetch(self, query: str) -> list[Product]:
+        payload = {
+            "query": query,
+            "page": 1,
+            "page_size": 20,
+            "filters": [],
+            "sort_order": "POPULARITY",
+        }
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                _API_URL,
+                json=payload,
+                headers=_HEADERS,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        products = []
+        catalogs = data.get("catalogs", []) or data.get("data", {}).get("catalogs", [])
+        for item in catalogs:
+            try:
                 name = item.get("name") or item.get("product_name", "")
                 price_raw = item.get("min_product_price") or item.get("price", 0)
-                slug = item.get("slug") or item.get("url_slug", "")
+                slug = item.get("slug") or item.get("product_slug") or ""
                 if not name or not price_raw:
                     continue
-                try:
-                    price = float(str(price_raw).replace(",", ""))
-                except (ValueError, TypeError):
-                    continue
+                price = float(str(price_raw).replace(",", ""))
                 if price <= 0:
                     continue
-                results.append({
-                    "title": name,
-                    "price": price,
-                    "currency": "INR",
-                    "rating": item.get("rating"),
-                    "review_count": item.get("rating_count"),
-                    "url": f"{_BASE}/{slug}" if slug else _BASE,
-                    "image_url": item.get("cover_image") or item.get("image_url"),
-                })
-        except Exception:  # noqa: BLE001
-            pass
-        return results
+                products.append(Product(
+                    source=self.source,
+                    title=name,
+                    price=price,
+                    currency="INR",
+                    rating=item.get("rating"),
+                    review_count=item.get("rating_count"),
+                    url=f"https://www.meesho.com/{slug}" if slug else "https://www.meesho.com",
+                    image_url=item.get("cover_image") or item.get("image_url"),
+                ))
+            except Exception:  # noqa: BLE001
+                continue
+        return products
