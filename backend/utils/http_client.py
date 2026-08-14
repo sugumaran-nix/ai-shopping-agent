@@ -1,9 +1,8 @@
 """
 Centralized HTTP client for all scraping.
 
-Routes traffic through ScraperAPI (handles proxy rotation + anti-bot bypass).
-Applies exponential-backoff retries via tenacity.
-The retry decorator is built once at module load — not on every call.
+Routes traffic through ScraperAPI. Uses country_code=in for Indian marketplaces
+to get correct regional content. JS rendering enabled per-scraper when needed.
 """
 from __future__ import annotations
 
@@ -31,21 +30,21 @@ class FetchError(Exception):
     """Raised when a URL could not be fetched after all retries."""
 
 
-# Build once at import time — not recreated per request
 _retry = retry(
     retry=retry_if_exception_type(_RETRYABLE),
     stop=stop_after_attempt(settings.max_retries + 1),
-    wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
 
 
-async def fetch_html(target_url: str, *, render_js: bool = False) -> str:
-    """
-    Fetch `target_url` via ScraperAPI. Returns raw HTML.
-    Raises FetchError on any failure — never returns a partial/empty string silently.
-    """
+async def fetch_html(
+    target_url: str,
+    *,
+    render_js: bool = False,
+    country_code: str = "in",
+) -> str:
     if not settings.scraperapi_key:
         raise FetchError(
             "SCRAPERAPI_KEY is not set. Add it to your .env file. "
@@ -55,6 +54,7 @@ async def fetch_html(target_url: str, *, render_js: bool = False) -> str:
     params: dict[str, str] = {
         "api_key": settings.scraperapi_key,
         "url": target_url,
+        "country_code": country_code,
     }
     if render_js:
         params["render"] = "true"

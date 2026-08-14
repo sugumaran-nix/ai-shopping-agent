@@ -1,12 +1,8 @@
 """
 Meesho search-results scraper.
 
-Meesho's product grid is client-rendered (Next.js), so JS rendering is
-requested from ScraperAPI. Prefers the JSON data island embedded by Next.js
-(__NEXT_DATA__) over CSS-class scraping — more durable when only the CSS changes.
-
-JS rendering costs more ScraperAPI credits, which is exactly why caching
-matters most for this source.
+Meesho is JS-rendered. Uses ScraperAPI render=true.
+Falls back to HTML parsing if __NEXT_DATA__ is not present.
 """
 from __future__ import annotations
 
@@ -27,41 +23,58 @@ logger = logging.getLogger("scraper.meesho")
 class MeeshoScraper(BaseScraper):
     source = Source.MEESHO
     render_js = True
+    country_code = "in"
 
     def build_search_url(self, query: str) -> str:
-        return f"{_BASE}/search?q={quote_plus(query)}"
+        return f"{_BASE}/search?q={quote_plus(query)}&searchType=manual"
 
     def parse(self, html: str) -> list[dict]:
         soup = BeautifulSoup(html, "lxml")
 
-        # Prefer structured JSON if available
-        script_tag = soup.select_one("script#__NEXT_DATA__")
-        if script_tag and script_tag.string:
+        # Try __NEXT_DATA__ first
+        script = soup.select_one("script#__NEXT_DATA__")
+        if script and script.string:
             try:
-                data = json.loads(script_tag.string)
-                products = self._extract_from_next_data(data)
+                data = json.loads(script.string)
+                products = self._from_next_data(data)
                 if products:
+                    logger.debug("Meesho: got %d products from __NEXT_DATA__", len(products))
                     return products
-            except (json.JSONDecodeError, KeyError, TypeError) as exc:
-                logger.debug("Meesho __NEXT_DATA__ parse failed, falling back to HTML: %s", exc)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Meesho __NEXT_DATA__ failed: %s", exc)
 
-        # HTML fallback
+        # HTML fallback — multiple selector attempts
         results = []
-        for card in soup.select("[data-testid='product-card'], div.ProductCard"):
-            title_el = card.select_one("p, span")
-            price_el = card.find(string=lambda s: s and "₹" in s)
+        selectors = [
+            "div[data-testid='product-card']",
+            "div.ProductCard",
+            "div.sc-dkrFOg",
+            "div[class*='ProductCard']",
+        ]
+        cards = []
+        for sel in selectors:
+            cards = soup.select(sel)
+            if cards:
+                break
+
+        logger.debug("Meesho: found %d HTML cards", len(cards))
+
+        for card in cards:
+            title_el = card.select_one("p[class*='Text']") or card.select_one("p") or card.select_one("span")
+            price_text = card.find(string=lambda s: s and "₹" in str(s))
             link_el = card.select_one("a")
 
-            if not (title_el and price_el and link_el):
+            if not title_el or not price_text or not link_el:
                 continue
 
             title = title_el.get_text(strip=True)
-            price = clean_price(price_el.strip())
-            if not title or price is None:
+            price = clean_price(str(price_text))
+            if not title or not price:
                 continue
 
             href = link_el.get("href", "")
-            full_url = make_absolute_url(href, _BASE)
+            url = make_absolute_url(href, _BASE)
+            img_el = card.select_one("img")
 
             results.append({
                 "title": title,
@@ -69,46 +82,42 @@ class MeeshoScraper(BaseScraper):
                 "currency": "INR",
                 "rating": None,
                 "review_count": None,
-                "url": full_url,
-                "image_url": None,
+                "url": url or _BASE,
+                "image_url": img_el.get("src") if img_el else None,
             })
 
         return results
 
     @staticmethod
-    def _extract_from_next_data(data: dict) -> list[dict]:
-        """
-        Walk the Next.js __NEXT_DATA__ payload for a products array.
-        The exact path is the most likely thing to shift on a Meesho deploy —
-        if this starts returning [] consistently, inspect the live __NEXT_DATA__
-        payload first.
-        """
-        try:
-            catalogs = data["props"]["pageProps"]["initialState"]["catalogs"]
-        except (KeyError, TypeError):
-            return []
-
+    def _from_next_data(data: dict) -> list[dict]:
         results = []
-        items = catalogs if isinstance(catalogs, list) else list(catalogs.values())
-        for item in items:
-            title = item.get("name") or item.get("product_name")
-            price_raw = item.get("min_product_price") or item.get("price")
-            slug = item.get("slug") or item.get("url_slug")
-            if not (title and price_raw and slug):
-                continue
-            try:
-                price = float(price_raw)
-            except (ValueError, TypeError):
-                continue
-            if price <= 0:
-                continue
-            results.append({
-                "title": title,
-                "price": price,
-                "currency": "INR",
-                "rating": item.get("rating"),
-                "review_count": item.get("rating_count"),
-                "url": f"{_BASE}/{slug}",
-                "image_url": item.get("image_url") or item.get("thumbnail"),
-            })
+        try:
+            # Try multiple known paths in Meesho's Next.js data
+            products = (
+                data.get("props", {}).get("pageProps", {}).get("data", {}).get("catalog_list_data", [])
+                or data.get("props", {}).get("pageProps", {}).get("initialData", {}).get("data", {}).get("catalog_list_data", [])
+            )
+            for item in products:
+                name = item.get("name") or item.get("product_name", "")
+                price_raw = item.get("min_product_price") or item.get("price", 0)
+                slug = item.get("slug") or item.get("url_slug", "")
+                if not name or not price_raw:
+                    continue
+                try:
+                    price = float(str(price_raw).replace(",", ""))
+                except (ValueError, TypeError):
+                    continue
+                if price <= 0:
+                    continue
+                results.append({
+                    "title": name,
+                    "price": price,
+                    "currency": "INR",
+                    "rating": item.get("rating"),
+                    "review_count": item.get("rating_count"),
+                    "url": f"{_BASE}/{slug}" if slug else _BASE,
+                    "image_url": item.get("cover_image") or item.get("image_url"),
+                })
+        except Exception:  # noqa: BLE001
+            pass
         return results

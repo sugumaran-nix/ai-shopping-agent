@@ -1,12 +1,9 @@
 """
-BaseScraper — the shared scrape → validate → cache → fallback pipeline.
+BaseScraper — shared scrape → validate → cache → fallback pipeline.
 
 Subclasses implement only:
   build_search_url(query) → str
   parse(html)             → list[dict]
-
-Everything else — fetching, validation, caching, fresh/stale/unavailable
-classification — is handled once here and applies uniformly to every scraper.
 """
 from __future__ import annotations
 
@@ -23,29 +20,24 @@ logger = logging.getLogger("scraper.base")
 class BaseScraper(ABC):
     source: Source
     render_js: bool = False
+    country_code: str = "in"
 
     @abstractmethod
-    def build_search_url(self, query: str) -> str:
-        """Return the fully-formed search URL for this marketplace."""
+    def build_search_url(self, query: str) -> str: ...
 
     @abstractmethod
-    def parse(self, html: str) -> list[dict]:
-        """
-        Parse raw HTML into a list of raw product dicts.
-        Keys must match the Product model fields.
-        Do NOT construct Product objects here — validation happens in search().
-        """
+    def parse(self, html: str) -> list[dict]: ...
 
     async def search(self, query: str) -> SourceResult:
-        """
-        Run a live scrape with fresh/stale/unavailable fallback.
-        Never raises — always returns a SourceResult.
-        """
         cached = cache_module.get(self.source.value, query)
 
         try:
             url = self.build_search_url(query)
-            html = await fetch_html(url, render_js=self.render_js)
+            html = await fetch_html(
+                url,
+                render_js=self.render_js,
+                country_code=self.country_code,
+            )
             raw_items = self.parse(html)
 
             validated: list[Product] = []
@@ -55,7 +47,7 @@ class BaseScraper(ABC):
                     validated.append(Product(source=self.source, **raw))
                 except Exception as exc:  # noqa: BLE001
                     rejected += 1
-                    logger.debug("%s: dropped item (validation): %s", self.source.value, exc)
+                    logger.debug("%s: dropped item: %s", self.source.value, exc)
 
             if rejected:
                 logger.warning(
@@ -93,18 +85,12 @@ class BaseScraper(ABC):
         self, cached: cache_module.CacheEntry | None, error: str
     ) -> SourceResult:
         if cached:
-            logger.info(
-                "%s: serving %s cache (age %.0fs)",
-                self.source.value,
-                "fresh" if cached.is_fresh else "stale",
-                cached.age_seconds,
-            )
             products = []
             for p in cached.data:
                 try:
                     products.append(Product(**p))
                 except Exception:  # noqa: BLE001
-                    pass  # skip corrupted cache entries
+                    pass
             return SourceResult(
                 source=self.source,
                 status=ScrapeStatus.STALE,
