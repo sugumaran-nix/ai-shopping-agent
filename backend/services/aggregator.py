@@ -1,6 +1,4 @@
-"""
-Runs every source concurrently and collects results.
-"""
+"""Runs every source concurrently and collects results."""
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +6,7 @@ import logging
 import time
 
 from config import get_settings
-from models import SearchResponse, ScrapeStatus, SourceResult
+from models import SearchResponse, ScrapeStatus, Source, SourceResult
 from scrapers.amazon import AmazonScraper
 from scrapers.flipkart import FlipkartScraper
 from scrapers.meesho import MeeshoScraper
@@ -33,9 +31,7 @@ async def _run_one(scraper, query: str, sem: asyncio.Semaphore) -> SourceResult:
         try:
             result = await scraper.search(query)
         except Exception as exc:  # noqa: BLE001
-            from models import ScrapeStatus, Source
-            logger.exception("Scraper %s raised unexpectedly: %s", scraper.source.value, exc)
-            from models import SourceResult
+            logger.exception("Scraper %s raised: %s", scraper.source.value, exc)
             result = SourceResult(
                 source=scraper.source,
                 status=ScrapeStatus.UNAVAILABLE,
@@ -43,14 +39,16 @@ async def _run_one(scraper, query: str, sem: asyncio.Semaphore) -> SourceResult:
                 error=str(exc),
             )
         elapsed = round((time.monotonic() - t0) * 1000)
-        logger.info(
-            "%s: %s, %d products (%dms)",
-            scraper.source.value, result.status.value, len(result.products), elapsed,
-        )
+        logger.info("%s: %s, %d products (%dms)",
+                    scraper.source.value, result.status.value, len(result.products), elapsed)
         return result
 
 
-async def run_search(query: str) -> SearchResponse:
+async def run_search(
+    query: str,
+    user_gemini_key: str | None = None,
+    user_scraperapi_key: str | None = None,
+) -> SearchResponse:
     sem = asyncio.Semaphore(settings.concurrent_scrape_limit)
     tasks = [_run_one(s, query, sem) for s in _SCRAPERS]
 
@@ -61,16 +59,18 @@ async def run_search(query: str) -> SearchResponse:
         tasks.append(_ebay())
 
     t0 = time.monotonic()
-    results = await asyncio.gather(*tasks)
+    results = list(await asyncio.gather(*tasks))
     elapsed = round((time.monotonic() - t0) * 1000)
 
     fresh = sum(1 for r in results if r.status == ScrapeStatus.FRESH)
     logger.info("search '%s': %d/%d fresh (%dms)", query[:50], fresh, len(results), elapsed)
 
-    recommendation, ai_error = await generate_recommendation(query, list(results))
+    recommendation, ai_error = await generate_recommendation(
+        query, results, user_gemini_key=user_gemini_key
+    )
     return SearchResponse(
         query=query,
-        results=list(results),
+        results=results,
         ai_recommendation=recommendation,
         ai_error=ai_error,
     )

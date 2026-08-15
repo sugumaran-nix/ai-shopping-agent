@@ -14,24 +14,24 @@ from services.ebay_service import search_ebay
 
 logger = logging.getLogger("health")
 
-_SCRAPERS = {
-    "amazon":   (AmazonScraper(),  "wireless mouse"),
-    "flipkart": (FlipkartScraper(), "wireless mouse"),
-    "meesho":   (MeeshoScraper(),  "kurti"),
-    "myntra":   (MyntraScraper(),  "sneakers"),
-}
+_SCRAPERS = [
+    (AmazonScraper(),   "wireless mouse"),
+    (FlipkartScraper(), "wireless mouse"),
+    (MeeshoScraper(),   "kurti"),
+    (MyntraScraper(),   "sneakers"),
+]
 
 
-async def _check(name: str, scraper, query: str) -> HealthCheckResult:
+async def _check(scraper, query: str) -> HealthCheckResult:
     t0 = time.monotonic()
     try:
         result: SourceResult = await scraper.search(query)
     except Exception as exc:  # noqa: BLE001
-        logger.error("Health %s error: %s", name, exc)
         result = SourceResult(source=scraper.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
     elapsed = round((time.monotonic() - t0) * 1000)
     healthy = result.status == ScrapeStatus.FRESH and len(result.products) > 0
-    logger.info("Health %s: %s | %d products | %dms", name, "OK" if healthy else "FAIL", len(result.products), elapsed)
+    logger.info("Health %s: %s | %d products | %dms",
+                scraper.source.value, "OK" if healthy else "FAIL", len(result.products), elapsed)
     return HealthCheckResult(
         source=result.source,
         healthy=healthy,
@@ -41,7 +41,7 @@ async def _check(name: str, scraper, query: str) -> HealthCheckResult:
 
 
 async def run_health_check() -> list[HealthCheckResult]:
-    tasks = [_check(name, scraper, query) for name, (scraper, query) in _SCRAPERS.items()]
+    tasks = [_check(scraper, query) for scraper, query in _SCRAPERS]
 
     async def _ebay():
         t0 = time.monotonic()

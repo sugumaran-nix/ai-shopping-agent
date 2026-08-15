@@ -87,7 +87,7 @@ app.add_middleware(
     allow_origins=settings.allowed_origins_list,
     allow_credentials=False,
     allow_methods=["GET"],
-    allow_headers=["Content-Type", "X-Request-ID"],
+    allow_headers=["Content-Type", "X-Request-ID", "X-Gemini-Key", "X-ScraperAPI-Key"],
 )
 
 
@@ -170,13 +170,26 @@ async def search(
     - **stale** — live scrape failed, showing last-cached result
     - **unavailable** — no data available from this source
 
+    Optional headers:
+    - **X-Gemini-Key** — user's own Gemini API key for AI recommendations
+    - **X-ScraperAPI-Key** — user's own ScraperAPI key for scraping
+
     The AI recommendation is grounded only in the data returned above —
     it will not invent prices or products.
     """
     query = q.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be blank.")
-    result = await run_search(query)
+
+    # Accept user-supplied keys from request headers
+    user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
+    user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
+
+    result = await run_search(
+        query,
+        user_gemini_key=user_gemini_key,
+        user_scraperapi_key=user_scraperapi_key,
+    )
     result.request_id = getattr(request.state, "request_id", None)
     return result
 
@@ -227,3 +240,50 @@ async def cache_clear():
     count = clear_all()
     logger.info("Cache cleared: %d entries removed", count)
     return {"cleared": count}
+
+
+@app.get("/api/v1/validate-keys", tags=["ops"])
+async def validate_keys(request: Request):
+    """
+    Validates API keys — either server-configured or user-supplied via headers.
+    Returns which services are available without making a full search.
+    Used by the frontend to show the API key setup screen when needed.
+    """
+    user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
+    user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
+
+    gemini_key = user_gemini_key or settings.gemini_api_key
+    scraper_key = user_scraperapi_key or settings.scraperapi_key
+
+    # Quick test of Gemini key
+    gemini_ok = False
+    gemini_error = None
+    if gemini_key:
+        try:
+            import httpx as _httpx
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
+            async with _httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(url)
+            gemini_ok = r.status_code == 200
+            if not gemini_ok:
+                gemini_error = "Invalid key" if r.status_code in (400, 403) else f"HTTP {r.status_code}"
+        except Exception as exc:  # noqa: BLE001
+            gemini_error = str(exc)[:80]
+    else:
+        gemini_error = "No key provided"
+
+    # ScraperAPI key check
+    scraper_ok = bool(scraper_key)
+
+    return {
+        "scraping": {
+            "available": scraper_ok,
+            "source": "user" if user_scraperapi_key else ("server" if settings.scraperapi_key else "none"),
+            "error": None if scraper_ok else "No ScraperAPI key configured",
+        },
+        "ai": {
+            "available": gemini_ok,
+            "source": "user" if user_gemini_key else ("server" if settings.gemini_api_key else "none"),
+            "error": gemini_error,
+        },
+    }

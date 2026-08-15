@@ -125,3 +125,61 @@ export const SOURCE_META: Record<Source, {
   myntra:   { label: 'Myntra',   color: 'bg-rose-50   border-rose-200',   headerColor: 'bg-rose-100',   accent: 'text-rose-800'   },
   ebay:     { label: 'eBay',     color: 'bg-yellow-50 border-yellow-200', headerColor: 'bg-yellow-100', accent: 'text-yellow-800' },
 }
+
+
+// ── API key-aware fetch ───────────────────────────────────────────────────────
+
+export interface KeyStatus {
+  scraping: { available: boolean; source: string; error: string | null }
+  ai: { available: boolean; source: string; error: string | null }
+}
+
+export async function validateKeys(scraperKey?: string, geminiKey?: string): Promise<KeyStatus> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
+  if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/validate-keys`, {
+      headers,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json() as Promise<KeyStatus>
+  } catch {
+    throw new Error('Could not reach server to validate keys')
+  }
+}
+
+export async function searchWithKeys(
+  query: string,
+  scraperKey?: string,
+  geminiKey?: string,
+): Promise<SearchResponse> {
+  const url = `${BASE_URL}/api/v1/search?q=${encodeURIComponent(query.trim())}`
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
+  if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(90_000),
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError')
+      throw new ApiError({ kind: 'timeout' })
+    throw new ApiError({ kind: 'network' })
+  }
+
+  if (!res.ok) {
+    let message = `Server error (${res.status})`
+    try { message = (await res.json())?.error?.message ?? message } catch { /* ignore */ }
+    throw new ApiError({ kind: 'server', status: res.status, message })
+  }
+
+  return res.json() as Promise<SearchResponse>
+}
