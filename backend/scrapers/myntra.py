@@ -1,9 +1,8 @@
 """
 Myntra search scraper.
 
-Routes through ScraperAPI with render=true. Myntra's pages are
-client-rendered and direct requests return empty bodies (bot detection).
-ScraperAPI handles JS execution and bot bypass.
+Routes through ScraperAPI with JS rendering.
+Tries multiple data extraction strategies in order of reliability.
 """
 from __future__ import annotations
 
@@ -28,13 +27,15 @@ class MyntraScraper(BaseScraper):
     country_code = "in"
 
     def build_search_url(self, query: str) -> str:
+        # Myntra uses slug-style search URLs
         slug = re.sub(r"\s+", "-", query.strip().lower())
-        return f"{_BASE}/{quote_plus(slug)}"
+        encoded = quote_plus(slug)
+        return f"{_BASE}/{encoded}"
 
     def parse(self, html: str) -> list[dict]:
         soup = BeautifulSoup(html, "lxml")
 
-        # Try window.__myx JSON first
+        # Strategy 1: window.__myx JSON
         for script in soup.find_all("script"):
             text = script.string or ""
             match = re.search(r"window\.__myx\s*=\s*(\{.*?\});", text, re.DOTALL)
@@ -43,36 +44,51 @@ class MyntraScraper(BaseScraper):
                     data = json.loads(match.group(1))
                     products = self._from_window_myx(data)
                     if products:
-                        logger.debug("Myntra: %d products from window.__myx", len(products))
+                        logger.debug("Myntra: %d from window.__myx", len(products))
                         return products
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Myntra window.__myx failed: %s", exc)
 
-        # Try __NEXT_DATA__
+        # Strategy 2: __NEXT_DATA__
         script = soup.select_one("script#__NEXT_DATA__")
         if script and script.string:
             try:
                 data = json.loads(script.string)
                 products = self._from_next_data(data)
                 if products:
-                    logger.debug("Myntra: %d products from __NEXT_DATA__", len(products))
+                    logger.debug("Myntra: %d from __NEXT_DATA__", len(products))
                     return products
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Myntra __NEXT_DATA__ failed: %s", exc)
 
-        # HTML fallback
+        # Strategy 3: any JSON script with product arrays
+        for script_tag in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script_tag.string or "")
+                if isinstance(data, list):
+                    products = self._from_ld_json(data)
+                    if products:
+                        return products
+            except Exception:  # noqa: BLE001
+                continue
+
+        # Strategy 4: HTML card selectors
         results = []
         cards = (
             soup.select("li.product-base")
             or soup.select("div[class*='product-base']")
             or soup.select("li[class*='results-base']")
             or soup.select("div[class*='product-card']")
+            or soup.select("div[class*='ProductCard']")
         )
 
-        logger.debug("Myntra: found %d HTML cards", len(cards))
+        logger.debug("Myntra: %d HTML cards", len(cards))
 
         for card in cards:
-            brand_el = card.select_one("h3.product-brand, h3[class*='brand']")
+            brand_el = (
+                card.select_one("h3.product-brand")
+                or card.select_one("h3[class*='brand']")
+            )
             name_el = (
                 card.select_one("h4.product-product")
                 or card.select_one("h4[class*='product']")
@@ -97,7 +113,6 @@ class MyntraScraper(BaseScraper):
             brand = brand_el.get_text(strip=True) if brand_el else ""
             name = name_el.get_text(strip=True)
             title = f"{brand} {name}".strip() if brand else name
-
             href = link_el.get("href", "") if link_el else ""
             url = make_absolute_url(href, _BASE) if href else _BASE
             img_el = card.select_one("img")
@@ -182,4 +197,30 @@ class MyntraScraper(BaseScraper):
                 })
         except Exception:  # noqa: BLE001
             pass
+        return results
+
+    @staticmethod
+    def _from_ld_json(items: list) -> list[dict]:
+        results = []
+        for item in items:
+            try:
+                if item.get("@type") != "Product":
+                    continue
+                name = item.get("name", "")
+                offers = item.get("offers", {})
+                price_raw = offers.get("price") or offers.get("lowPrice")
+                url = item.get("url", _BASE)
+                if not name or not price_raw:
+                    continue
+                results.append({
+                    "title": name,
+                    "price": float(price_raw),
+                    "currency": "INR",
+                    "rating": item.get("aggregateRating", {}).get("ratingValue"),
+                    "review_count": item.get("aggregateRating", {}).get("reviewCount"),
+                    "url": url,
+                    "image_url": item.get("image"),
+                })
+            except Exception:  # noqa: BLE001
+                continue
         return results

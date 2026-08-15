@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: { default: 'AI Shopping Agent', template: '%s — AI Shopping Agent' },
   description: 'Compare real prices across Amazon, Flipkart, Meesho, Myntra & eBay. AI-powered buying recommendations grounded in live data.',
   keywords: ['price comparison', 'shopping', 'Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AI'],
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/favicon.ico',
+    apple: '/icon-192.png',
+  },
   openGraph: {
     title: 'AI Shopping Agent',
     description: 'Real-time product comparison across 5 marketplaces with AI recommendations.',
@@ -38,10 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center
-                              text-white text-xs font-bold shadow-sm flex-shrink-0 tracking-tight">
-                AI
-              </div>
+              <img src="/logo.svg" alt="AI Shopping Agent logo" width={32} height={32}
+                   className="rounded-lg flex-shrink-0" />
               <div>
                 <span className="font-bold text-gray-900 text-sm leading-none block">
                   AI Shopping Agent

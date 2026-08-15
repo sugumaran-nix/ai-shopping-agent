@@ -1,8 +1,4 @@
-"""
-Centralized, validated application configuration.
-
-All settings are read from environment variables (or a .env file in dev).
-"""
+"""Centralized, validated application configuration."""
 from __future__ import annotations
 
 import logging
@@ -10,8 +6,6 @@ from functools import lru_cache
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-logger = logging.getLogger("config")
 
 
 class Settings(BaseSettings):
@@ -21,16 +15,11 @@ class Settings(BaseSettings):
     scraperapi_key: str = ""
     gemini_api_key: str = ""
 
-    # ── Optional: eBay Browse API ──────────────────────────────────────────
+    # ── Optional ───────────────────────────────────────────────────────────
     ebay_client_id: str = ""
     ebay_client_secret: str = ""
 
     # ── CORS ───────────────────────────────────────────────────────────────
-    # Comma-separated list of allowed frontend origins.
-    # In production on Render, set this to your Vercel URL, e.g.:
-    #   ALLOWED_ORIGINS=https://ai-shopping-agent.vercel.app
-    # For local dev the default covers localhost:3000.
-    # "*" is intentionally NOT supported — we always require explicit origins.
     allowed_origins: str = "http://localhost:3000"
 
     # ── Cache ──────────────────────────────────────────────────────────────
@@ -40,8 +29,10 @@ class Settings(BaseSettings):
     cache_max_size_bytes: int = 500_000_000
 
     # ── Scraping ───────────────────────────────────────────────────────────
-    request_timeout_seconds: int = 15
-    max_retries: int = 2
+    # Note: actual timeouts are set per-request in http_client.py
+    # (20s for plain HTML, 60s for JS rendering)
+    request_timeout_seconds: int = 20
+    max_retries: int = 1          # reduced — retrying slow JS scrapers wastes time
     concurrent_scrape_limit: int = 4
 
     # ── AI ─────────────────────────────────────────────────────────────────
@@ -67,21 +58,15 @@ class Settings(BaseSettings):
             ("GEMINI_API_KEY", self.gemini_api_key),
         ] if not v]
         if missing:
-            logger.warning(
-                "Missing env vars: %s — some features will be unavailable.",
-                ", ".join(missing),
+            logging.getLogger("config").warning(
+                "Missing env vars: %s — some features will be unavailable.", ", ".join(missing)
             )
-
-        # Loudly warn if ALLOWED_ORIGINS looks like it hasn't been set for production
         if self.environment == "production" and self.allowed_origins == "http://localhost:3000":
-            logger.error(
-                "ALLOWED_ORIGINS is still set to localhost in a production environment! "
-                "Set ALLOWED_ORIGINS to your Vercel URL in the Render dashboard. "
-                "CORS will block all browser requests."
+            logging.getLogger("config").error(
+                "ALLOWED_ORIGINS is still localhost in production — CORS will block all browser requests."
             )
         else:
-            logger.info("CORS allowed origins: %s", self.allowed_origins)
-
+            logging.getLogger("config").info("CORS allowed origins: %s", self.allowed_origins)
         return self
 
     @property
