@@ -58,8 +58,7 @@ async def lifespan(app: FastAPI):
         "AI Shopping Agent starting | env=%s scraperapi=%s gemini=%s",
         settings.environment,
         "configured" if settings.scraperapi_key else "MISSING",
-        "configured" if settings.gemini_enabled else "MISSING",
-        
+        "configured" if settings.gemini_api_key else "MISSING",
     )
     yield
     logger.info("AI Shopping Agent shutting down")
