@@ -37,7 +37,7 @@ const FEATURES = [
   { Icon: SlidersHorizontal,iconClass: 'text-green-600',  bgClass: 'bg-green-50',  title: 'Sort & filter',      body: 'Sort each source by price or rating independently.' },
 ]
 
-const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra', 'eBay']
+const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra']
 
 // ── Subcomponents ─────────────────────────────────────────────────────────────
 

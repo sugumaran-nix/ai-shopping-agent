@@ -55,11 +55,11 @@ logger = logging.getLogger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(
-        "AI Shopping Agent starting | env=%s scraperapi=%s gemini=%s ebay=%s",
+        "AI Shopping Agent starting | env=%s scraperapi=%s gemini=%s",
         settings.environment,
         "configured" if settings.scraperapi_key else "MISSING",
         "configured" if settings.gemini_enabled else "MISSING",
-        "configured" if settings.ebay_enabled else "disabled",
+        
     )
     yield
     logger.info("AI Shopping Agent shutting down")
@@ -70,7 +70,7 @@ app = FastAPI(
     title="AI Shopping Agent API",
     version="2.2.0",
     description=(
-        "Compares products across Amazon, Flipkart, Meesho, Myntra, and eBay. "
+        "Compares products across Amazon, Flipkart, Meesho, and Myntra. "
         "Results are explicitly labeled fresh, stale, or unavailable. "
         "AI recommendations are grounded strictly in the real data returned — "
         "no hallucinated prices or products."

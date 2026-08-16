@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: { default: 'AI Shopping Agent', template: '%s — AI Shopping Agent' },
-  description: 'Compare real prices across Amazon, Flipkart, Meesho, Myntra & eBay. AI-powered buying recommendations grounded in live data.',
+  description: 'Compare real prices across Amazon, Flipkart, Meesho & Myntra. AI-powered buying recommendations grounded in live data.',
   keywords: ['price comparison', 'shopping', 'Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AI'],
   icons: {
     icon: '/icon.svg',

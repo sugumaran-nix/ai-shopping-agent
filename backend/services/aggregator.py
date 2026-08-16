@@ -6,13 +6,12 @@ import logging
 import time
 
 from config import get_settings
-from models import SearchResponse, ScrapeStatus, Source, SourceResult
+from models import SearchResponse, ScrapeStatus, SourceResult
 from scrapers.amazon import AmazonScraper
 from scrapers.flipkart import FlipkartScraper
 from scrapers.meesho import MeeshoScraper
 from scrapers.myntra import MyntraScraper
 from services.ai_service import generate_recommendation
-from services.ebay_service import search_ebay
 
 logger = logging.getLogger("aggregator")
 settings = get_settings()
@@ -51,12 +50,6 @@ async def run_search(
 ) -> SearchResponse:
     sem = asyncio.Semaphore(settings.concurrent_scrape_limit)
     tasks = [_run_one(s, query, sem) for s in _SCRAPERS]
-
-    if settings.ebay_enabled:
-        async def _ebay():
-            async with sem:
-                return await search_ebay(query)
-        tasks.append(_ebay())
 
     t0 = time.monotonic()
     results = list(await asyncio.gather(*tasks))

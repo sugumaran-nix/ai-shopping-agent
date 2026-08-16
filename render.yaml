@@ -18,11 +18,6 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false
 
-      # ── Optional ──────────────────────────────────────────────────────────
-      - key: EBAY_CLIENT_ID
-        sync: false
-      - key: EBAY_CLIENT_SECRET
-        sync: false
 
       # ── Cache — /tmp is always writable on Render free tier ───────────────
       # Note: /tmp is ephemeral (cleared on redeploy/restart).

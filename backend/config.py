@@ -16,8 +16,6 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     # ── Optional ───────────────────────────────────────────────────────────
-    ebay_client_id: str = ""
-    ebay_client_secret: str = ""
 
     # ── CORS ───────────────────────────────────────────────────────────────
     allowed_origins: str = "http://localhost:3000"
@@ -74,8 +72,6 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     @property
-    def ebay_enabled(self) -> bool:
-        return bool(self.ebay_client_id and self.ebay_client_secret)
 
     @property
     def gemini_enabled(self) -> bool:
