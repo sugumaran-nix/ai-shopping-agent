@@ -24,11 +24,16 @@ _SCRAPERS = [
 ]
 
 
-async def _run_one(scraper, query: str, sem: asyncio.Semaphore) -> SourceResult:
+async def _run_one(
+    scraper,
+    query: str,
+    sem: asyncio.Semaphore,
+    scraperapi_key: str | None = None,
+) -> SourceResult:
     async with sem:
         t0 = time.monotonic()
         try:
-            result = await scraper.search(query)
+            result = await scraper.search(query, scraperapi_key=scraperapi_key)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Scraper %s raised: %s", scraper.source.value, exc)
             result = SourceResult(
@@ -49,7 +54,7 @@ async def run_search(
     user_scraperapi_key: str | None = None,
 ) -> SearchResponse:
     sem = asyncio.Semaphore(settings.concurrent_scrape_limit)
-    tasks = [_run_one(s, query, sem) for s in _SCRAPERS]
+    tasks = [_run_one(s, query, sem, user_scraperapi_key) for s in _SCRAPERS]
 
     t0 = time.monotonic()
     results = list(await asyncio.gather(*tasks))

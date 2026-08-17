@@ -28,13 +28,14 @@ class BaseScraper(ABC):
     @abstractmethod
     def parse(self, html: str) -> list[dict]: ...
 
-    async def search(self, query: str) -> SourceResult:
+    async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
         cached = cache_module.get(self.source.value, query)
 
         try:
             url = self.build_search_url(query)
             html = await fetch_html(
                 url,
+                api_key=scraperapi_key,
                 render_js=self.render_js,
                 country_code=self.country_code,
             )

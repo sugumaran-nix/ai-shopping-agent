@@ -265,20 +265,42 @@ async def validate_keys(request: Request):
                 r = await client.get(url)
             gemini_ok = r.status_code == 200
             if not gemini_ok:
-                gemini_error = "Invalid key" if r.status_code in (400, 403) else f"HTTP {r.status_code}"
-        except Exception as exc:  # noqa: BLE001
-            gemini_error = str(exc)[:80]
+                gemini_error = "Invalid or unavailable key" if r.status_code in (400, 401, 403) else "Could not verify this key"
+        except Exception:  # noqa: BLE001
+            gemini_error = "Could not reach the key verification service"
     else:
         gemini_error = "No key provided"
 
-    # ScraperAPI key check
-    scraper_ok = bool(scraper_key)
+    # Lightweight real ScraperAPI check so a present-but-invalid key is not reported as working.
+    scraper_ok = False
+    scraper_error = None
+    if scraper_key:
+        try:
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=8) as client:
+                response = await client.get(
+                    "https://api.scraperapi.com/",
+                    params={
+                        "api_key": scraper_key,
+                        "url": "https://example.com/",
+                        "country_code": "in",
+                    },
+                )
+            scraper_ok = response.status_code == 200 and bool(response.text.strip())
+            if not scraper_ok:
+                scraper_error = "Invalid or unavailable key" if response.status_code in (400, 401, 403) else "Could not verify this key"
+        except _httpx.TimeoutException:
+            scraper_error = "Key verification timed out"
+        except Exception:  # noqa: BLE001
+            scraper_error = "Could not reach the key verification service"
+    else:
+        scraper_error = "No key provided"
 
     return {
         "scraping": {
             "available": scraper_ok,
             "source": "user" if user_scraperapi_key else ("server" if settings.scraperapi_key else "none"),
-            "error": None if scraper_ok else "No ScraperAPI key configured",
+            "error": None if scraper_ok else scraper_error,
         },
         "ai": {
             "available": gemini_ok,

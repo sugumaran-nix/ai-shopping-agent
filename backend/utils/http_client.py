@@ -66,16 +66,14 @@ def _build_params(target_url: str, api_key: str, render_js: bool, country_code: 
 async def fetch_html(
     target_url: str,
     *,
+    api_key: str | None = None,
     render_js: bool = False,
     country_code: str = "in",
 ) -> str:
     """Fetch HTML via ScraperAPI. Uses appropriate retry/timeout based on render_js."""
-    key = settings.scraperapi_key
+    key = api_key or settings.scraperapi_key
     if not key:
-        raise FetchError(
-            "SCRAPERAPI_KEY is not set. "
-            "Free tier at https://www.scraperapi.com/"
-        )
+        raise FetchError("No ScraperAPI key is configured for this request")
 
     params = _build_params(target_url, key, render_js, country_code)
 

@@ -36,12 +36,12 @@ _HEADERS = {
 class MyntraScraper:
     source = Source.MYNTRA
 
-    async def search(self, query: str) -> SourceResult:
+    async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
         import cache as cache_module
         cached = cache_module.get(self.source.value, query)
 
         try:
-            products = await self._fetch(query)
+            products = await self._fetch(query, scraperapi_key)
             if not products:
                 raise ValueError("0 products returned from Myntra")
 
@@ -63,7 +63,7 @@ class MyntraScraper:
                 return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
             return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
 
-    async def _fetch(self, query: str) -> list[Product]:
+    async def _fetch(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
         """
         Try multiple Myntra endpoints in order:
         1. Internal search API (fastest, often blocked)
@@ -79,9 +79,9 @@ class MyntraScraper:
             logger.debug("Myntra internal API failed: %s", exc)
 
         # Try 2: ScraperAPI ultra_premium (residential proxy, bypasses Myntra's bot detection)
-        if settings.scraperapi_key:
+        if scraperapi_key or settings.scraperapi_key:
             try:
-                products = await self._try_scraperapi_premium(query)
+                products = await self._try_scraperapi_premium(query, scraperapi_key)
                 if products:
                     logger.debug("Myntra: %d from ScraperAPI premium", len(products))
                     return products
@@ -106,12 +106,12 @@ class MyntraScraper:
 
         return self._parse_api_response(data)
 
-    async def _try_scraperapi_premium(self, query: str) -> list[Product]:
+    async def _try_scraperapi_premium(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
         """ScraperAPI with ultra_premium=true (residential proxy)."""
         from urllib.parse import urlencode
         search_url = f"{_BASE}/search?q={query.strip().replace(' ', '+')}"
         params = {
-            "api_key": settings.scraperapi_key,
+            "api_key": scraperapi_key or settings.scraperapi_key,
             "url": search_url,
             "render": "true",
             "ultra_premium": "true",
