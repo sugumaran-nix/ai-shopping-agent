@@ -70,9 +70,7 @@ User → GET /api/v1/search?q=...
 
 The frontend is designed as a focused price-comparison workspace rather than a generic dashboard. The landing view introduces the search flow, while a completed search replaces the landing content with a compact results desk. The logo and **New search** action intentionally return users to the landing experience.
 
-A completed search leads with one unified **Top 10 picks** card. It combines the strongest comparable products across sources, retains marketplace attribution, and only ranks products together when their currency is comparable. The full per-marketplace results remain available below in compact, accessible accordion panels.
-
-Long marketplace lists stay inside their source panels instead of expanding the entire page. This keeps the comparison view aligned on desktop and prevents one source with dozens of products from pushing every other source far below the fold. On smaller screens, the internal list height is reduced so the page remains easy to scan and scroll.
+Long marketplace lists stay inside their source cards instead of expanding the entire page. This keeps the comparison grid aligned on desktop and prevents one source with dozens of products from pushing every other source far below the fold. On smaller screens, the internal list height is reduced so the page remains easy to scan and scroll.
 
 | Frontend surface | Behavior |
 |---|---|
@@ -80,8 +78,7 @@ Long marketplace lists stay inside their source panels instead of expanding the 
 | Results loading | Marketplace-shaped skeleton cards preserve layout while real listings are fetched. |
 | Product comparison | Lowest comparable price is marked with a subtle Best badge when all prices use the same currency. |
 | Theme control | The header toggle persists light/dark mode in browser storage and respects reduced-motion preferences. |
-| Top 10 picks | A unified comparable-price shortlist leads the results view with marketplace attribution. |
-| Source details | Each marketplace is collapsed by default, independently sortable, and internally scrollable for long result lists. |
+| Source cards | Each marketplace has independent sorting and an internal scroll area for long result lists. |
 | API-key setup | Keys are entered in a compact first-run flow and remain in the browser session only. |
 
 The frontend is intentionally careful about wording: user-facing copy describes the shopping action and result state, while implementation details such as framework names stay in the project documentation and deployment notes.

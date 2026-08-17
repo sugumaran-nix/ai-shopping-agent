@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react'
 import { AlertTriangle, Bot, CircleDot, Plus, RefreshCw, Settings, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
 import { SearchBar } from '@/components/SearchBar'
 import { SourceSection } from '@/components/SourceSection'
-import { TopPicksCard } from '@/components/TopPicksCard'
 import { AIRecommendation } from '@/components/AIRecommendation'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ApiKeySetup } from '@/components/ApiKeySetup'
@@ -108,20 +107,6 @@ function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
   )
 }
 
-function getTopPicks(data: SearchResponse): Product[] {
-  const availableProducts = data.results
-    .filter(result => result.status !== 'unavailable')
-    .flatMap(result => result.products)
-    .filter(product => Number.isFinite(product.price) && product.price > 0)
-  const currencyCounts = availableProducts.reduce<Record<string, number>>((counts, product) => ({ ...counts, [product.currency]: (counts[product.currency] ?? 0) + 1 }), {})
-  const comparableCurrency = Object.entries(currencyCounts).sort(([, a], [, b]) => b - a)[0]?.[0]
-  if (!comparableCurrency) return []
-  return availableProducts
-    .filter(product => product.currency === comparableCurrency)
-    .sort((a, b) => a.price - b.price || (b.rating ?? 0) - (a.rating ?? 0))
-    .slice(0, 10)
-}
-
 function ResultsSearchHeader({ query, onChange, onSearch, loading, onNewSearch }: { query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onNewSearch: () => void }) {
   return <div className="rounded-[20px] border border-[#dfe1d8] bg-white/60 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl lg:sticky lg:top-[88px] lg:z-10 sm:p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="eyebrow text-[#718239]">Live price desk</p><p className="mt-1 text-xs font-medium text-[#858a81]">Search again without leaving your shortlist.</p></div><button onClick={onNewSearch} className="focus-ring flex flex-shrink-0 items-center gap-1.5 rounded-full bg-[#c9f36b] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
 }
@@ -171,8 +156,15 @@ export default function HomePage() {
   }, [query, handleSearch])
 
   const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
-  const topPicks = phase.name === 'done' ? getTopPicks(phase.data) : []
-  const lowestProduct: Product | undefined = topPicks[0]
+  const lowestProduct: Product | undefined = phase.name === 'done' ? (() => {
+    const products = phase.data.results
+      .filter(result => result.status !== 'unavailable')
+      .flatMap(result => result.products)
+      .filter(product => Number.isFinite(product.price) && product.price > 0)
+    const currencies = new Set(products.map(product => product.currency))
+    if (products.length === 0 || currencies.size !== 1) return undefined
+    return products.reduce((lowest, product) => product.price < lowest.price ? product : lowest)
+  })() : undefined
   const handleNewSearch = useCallback(() => {
     setQuery('')
     setPhase({ name: 'idle' })
@@ -201,7 +193,7 @@ export default function HomePage() {
 
         {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onNewSearch={handleNewSearch} /><LoadingState /></div>}
         {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><TopPicksCard products={topPicks} query={phase.data.query} /><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} /><section className="space-y-3" aria-labelledby="source-details-title"><div className="flex items-end justify-between gap-3 px-1"><div><p className="eyebrow text-[#718239]">Browse by marketplace</p><h2 id="source-details-title" className="mt-1 font-display text-2xl text-[#171a16]">Source details</h2></div><p className="hidden text-right text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a59a] sm:block">Expand a source for its full list</p></div><div className="grid gap-3 sm:grid-cols-2">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div></section>{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )
