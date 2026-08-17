@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-[#dfe1d8] bg-[#f5f4ef]">
           <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-[11px] font-medium text-[#858a81] sm:px-8">
             <p className="max-w-xl leading-relaxed">Prices are gathered from public listings. Always verify the final price, availability, and delivery details before buying.</p>
-            <p className="uppercase tracking-[0.16em]">FastAPI · Next.js · Gemini</p>
+            <p className="uppercase tracking-[0.16em]">Live listings · grounded picks</p>
           </div>
         </footer>
       </body>

@@ -182,3 +182,20 @@ html.theme-changing,
 html.theme-changing * {
   transition: background-color 360ms ease, border-color 360ms ease, color 280ms ease, box-shadow 360ms ease !important;
 }
+
+.source-products-scroll {
+  max-height: 34rem;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #b7c88b transparent;
+}
+
+.source-products-scroll::-webkit-scrollbar { width: 6px; }
+.source-products-scroll::-webkit-scrollbar-track { background: transparent; }
+.source-products-scroll::-webkit-scrollbar-thumb { background: #b7c88b; border-radius: 999px; }
+
+@media (max-width: 640px) {
+  .source-products-scroll { max-height: 28rem; }
+}
