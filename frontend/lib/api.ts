@@ -52,8 +52,8 @@ export class ApiError extends Error {
     switch (d.kind) {
       case 'network': return 'Cannot reach the server. Check your internet connection and try again.'
       case 'timeout': return 'The search took too long. The server may be starting up — please try again in 30 seconds.'
-      case 'server':  return d.message || `Server error (${d.status}). Please try again.`
-      default:        return d.message || 'Something went wrong. Please try again.'
+      case 'server':  return d.status === 403 ? 'The live price connection was rejected. Check the scraping connection or try again later.' : 'The comparison service is temporarily unavailable. Please try again.'
+      default:        return 'Something went wrong while preparing the comparison. Please try again.'
     }
   }
   get isRetryable(): boolean {
@@ -181,6 +181,18 @@ export async function searchWithKeys(
   }
 
   return res.json() as Promise<SearchResponse>
+}
+
+export function friendlyUserError(error?: string | null, kind: 'connection' | 'ai' | 'setup' = 'connection'): string {
+  if (!error) return kind === 'ai' ? 'AI recommendations are temporarily unavailable.' : kind === 'setup' ? 'The connection could not be verified. Check your key and try again.' : 'This service is temporarily unavailable. Try again later.'
+  const normalized = error.toLowerCase()
+  if (/scraperapi|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) {
+    return kind === 'ai' ? 'The AI recommendation is temporarily unavailable. Your price results are still available.' : kind === 'setup' ? 'The connection could not be verified. Check your key and try again.' : 'Live marketplace access was rejected. Try again later.'
+  }
+  if (/gemini|generat|model|ai/.test(normalized)) return 'The AI recommendation is temporarily unavailable. Your price results are still available.'
+  if (/timeout|timed out/.test(normalized)) return 'The request took too long to respond. Try again in a moment.'
+  if (/network|connect|server/.test(normalized)) return 'The service could not be reached right now. Try again later.'
+  return kind === 'ai' ? 'The AI recommendation is temporarily unavailable. Your price results are still available.' : kind === 'setup' ? 'The connection could not be verified. Check your key and try again.' : 'This service did not return a usable response. Try again later.'
 }
 
 export function friendlySourceError(status: ScrapeStatus, error?: string | null): string {

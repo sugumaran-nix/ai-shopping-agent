@@ -1,6 +1,7 @@
 'use client'
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { friendlyUserError } from '@/lib/api'
 
 export class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -26,7 +27,7 @@ export class ErrorBoundary extends Component<
               </div>
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h2>
-            <p className="text-sm text-gray-500 mb-6">{this.state.error.message}</p>
+            <p className="text-sm text-gray-500 mb-6">{friendlyUserError(this.state.error.message)}</p>
             <button
               onClick={() => { this.setState({ error: null }); window.location.reload() }}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white

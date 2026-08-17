@@ -199,3 +199,8 @@ html.theme-changing * {
 @media (max-width: 640px) {
   .source-products-scroll { max-height: 28rem; }
 }
+
+html.dark [class*="bg-[#f7faed]"] { background-color: #1d2819 !important; }
+html.dark [class*="border-[#d7e4b5]"] { border-color: #3d522d !important; }
+html.dark [class*="text-[#64832b]"],
+html.dark [class*="text-[#718239]"] { color: #b4d873 !important; }
