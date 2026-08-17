@@ -37,29 +37,12 @@ const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra']
 
 function LoadingState() {
   return (
-    <div className="animate-float-in py-20" role="status" aria-live="polite">
-      <div className="mx-auto max-w-xl rounded-[28px] border border-[#dfe1d8] bg-[#171a16] p-6 text-[#f5f4ef] shadow-[0_24px_80px_rgba(23,26,22,0.15)] sm:p-8">
-        <div className="mb-9 flex items-center justify-between">
-          <span className="eyebrow text-[#aeb8a2]">Live scan in progress</span>
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#c9f36b]"><span className="h-2 w-2 animate-glow-pulse rounded-full bg-[#c9f36b]" /> Searching</span>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {SOURCES.map((src, i) => (
-            <div key={src} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="h-10 rounded-xl bg-white/10 animate-pulse" aria-hidden />
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#aeb8a2]">{src}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 flex items-end justify-between gap-6">
-          <div>
-            <p className="font-display text-2xl leading-none sm:text-3xl">Checking every shelf.</p>
-            <p className="mt-2 text-sm leading-relaxed text-[#aeb8a2]">First searches take 10–30 seconds. Cached searches move faster.</p>
-          </div>
-          <div className="hidden h-12 w-12 flex-shrink-0 rounded-full border border-[#c9f36b]/40 p-1 sm:block"><div className="h-full w-full animate-spin rounded-full border-2 border-[#c9f36b] border-r-transparent" /></div>
-        </div>
+    <section className="animate-content-reveal space-y-4 pt-4" role="status" aria-live="polite" aria-label="Loading marketplace results">
+      <div className="flex items-center justify-between rounded-[18px] border border-[#384524] bg-[#171a16] px-4 py-3 text-[#f5f4ef] shadow-[0_12px_30px_rgba(23,26,22,0.1)]"><div><p className="eyebrow text-[#aeb8a2]">Live scan in progress</p><p className="mt-1 text-xs text-[#c7d0bd]">Comparing prices across every connected marketplace.</p></div><span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#c9f36b]"><span className="h-2 w-2 animate-glow-pulse rounded-full bg-[#c9f36b]" /> Searching</span></div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {SOURCES.map((src, i) => <div key={src} className="overflow-hidden rounded-[24px] border border-[#dfe1d8] bg-white/60 p-4" style={{ animationDelay: `${i * 70}ms` }}><div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-3"><div className="skeleton-shimmer h-10 w-10 rounded-[14px]" aria-hidden /><div className="space-y-2"><div className="skeleton-shimmer h-3 w-20 rounded-full" aria-hidden /><div className="skeleton-shimmer h-2 w-28 rounded-full" aria-hidden /></div></div><div className="skeleton-shimmer h-5 w-12 rounded-full" aria-hidden /></div><div className="mb-3 flex gap-2"><div className="skeleton-shimmer h-6 w-20 rounded-full" aria-hidden /><div className="skeleton-shimmer h-6 w-14 rounded-full" aria-hidden /></div><div className="space-y-2"><div className="skeleton-shimmer h-[76px] rounded-[18px]" aria-hidden /><div className="skeleton-shimmer h-[76px] rounded-[18px]" aria-hidden /><div className="skeleton-shimmer h-[76px] rounded-[18px]" aria-hidden /></div><p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a59a]">{src} is checking live listings</p></div>)}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -68,7 +51,7 @@ function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error;
   const isKeyError = error instanceof ApiError && error.detail.kind === 'server' && (error.detail.status === 403 || error.message.toLowerCase().includes('key'))
 
   return (
-    <div className="animate-float-in py-16" role="alert">
+    <div className="animate-content-reveal py-10" role="alert">
       <div className="mx-auto max-w-lg overflow-hidden rounded-[28px] border border-[#e3cbbd] bg-white/85 shadow-[0_20px_70px_rgba(79,46,28,0.1)]">
         <div className="flex items-center gap-3 border-b border-[#eadbd2] bg-[#fff6ef] px-6 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f6d4bc] text-[#9e4e21]">{isRetryable ? <WifiOff className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}</div>
@@ -210,7 +193,7 @@ export default function HomePage() {
 
         {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onNewSearch={handleNewSearch} /><LoadingState /></div>}
         {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-float-in space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )
