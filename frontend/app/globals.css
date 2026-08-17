@@ -97,3 +97,88 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Class-based dark theme. The targeted overrides keep the existing component contracts intact. */
+html.dark {
+  color-scheme: dark;
+  background: #0f120e;
+}
+
+html.dark body {
+  background: #0f120e;
+  color: #eef3e7;
+}
+
+html.dark .paper-grid {
+  background-image: linear-gradient(rgba(201, 243, 107, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 243, 107, 0.045) 1px, transparent 1px);
+}
+
+html.dark header,
+html.dark footer {
+  background-color: rgba(15, 18, 14, 0.88) !important;
+  border-color: #2c3928 !important;
+}
+
+html.dark [class*="bg-[#f5f4ef]"],
+html.dark [class*="bg-white"] {
+  background-color: #181e16 !important;
+}
+
+html.dark [class*="bg-[#fbfbf8]"],
+html.dark [class*="bg-[#f8f8f4]"],
+html.dark [class*="bg-[#f0f1ec]"],
+html.dark [class*="bg-[#f0f3e9]"],
+html.dark [class*="bg-[#f7faef]"],
+html.dark [class*="bg-[#eff7d9]"] {
+  background-color: #202a1d !important;
+}
+
+html.dark [class*="border-[#dfe1d8]"],
+html.dark [class*="border-[#e5e7df]"],
+html.dark [class*="border-[#eceee8]"],
+html.dark [class*="border-[#d5d9cf]"],
+html.dark [class*="border-[#cfd4c5]"],
+html.dark [class*="border-[#cdd1c5]"],
+html.dark [class*="border-[#e6e8e0]"],
+html.dark [class*="border-[#e1e6d5]"] {
+  border-color: #34432e !important;
+}
+
+html.dark [class*="text-[#171a16]"],
+html.dark [class*="text-[#343a31]"],
+html.dark [class*="text-[#3e2418]"] {
+  color: #eef3e7 !important;
+}
+
+html.dark [class*="text-[#5f665b]"],
+html.dark [class*="text-[#73786f]"],
+html.dark [class*="text-[#858a81]"],
+html.dark [class*="text-[#89907f]"],
+html.dark [class*="text-[#8a8f84]"],
+html.dark [class*="text-[#92988e]"],
+html.dark [class*="text-[#9a9f95]"],
+html.dark [class*="text-[#a0a59a]"],
+html.dark [class*="text-[#a4aa9e]"],
+html.dark [class*="text-[#b6bbb1]"] {
+  color: #aeb9a5 !important;
+}
+
+html.dark [class*="bg-[#fff6ef]"] {
+  background-color: #2a211b !important;
+}
+
+html.dark [class*="border-[#eadbd2]"],
+html.dark [class*="border-[#e3cbbd]"],
+html.dark [class*="border-[#ebd5cd]"] {
+  border-color: #5b4032 !important;
+}
+
+html.dark input::placeholder {
+  color: #77836f;
+}
+
+html.theme-changing,
+html.theme-changing * {
+  transition: background-color 360ms ease, border-color 360ms ease, color 280ms ease, box-shadow 360ms ease !important;
+}

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export const metadata: Metadata = {
   title: { default: 'AI Shopping Agent', template: '%s — AI Shopping Agent' },
@@ -52,9 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="h-2 w-2 rounded-full bg-[#9ed83f] shadow-[0_0_0_4px_rgba(158,216,63,0.18)]" aria-hidden />
                 Live comparison
               </div>
-              <div className="rounded-full border border-[#cdd1c5] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#73786f]">
+              <div className="rounded-full border border-[#cdd1c5] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#73786f] dark:border-[#39452d] dark:bg-[#1c2418] dark:text-[#c9f36b]">
                 4 marketplaces
               </div>
+              <ThemeToggle />
             </div>
           </div>
         </header>
