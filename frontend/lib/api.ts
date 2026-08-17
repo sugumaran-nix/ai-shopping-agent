@@ -182,3 +182,20 @@ export async function searchWithKeys(
 
   return res.json() as Promise<SearchResponse>
 }
+
+export function friendlySourceError(status: ScrapeStatus, error?: string | null): string {
+  if (status === 'stale') return 'Live access is temporarily unavailable. Showing the latest saved prices.'
+  if (!error) return status === 'unavailable' ? 'This source is temporarily unavailable. Try another source or refresh later.' : 'Live prices are not available right now.'
+
+  const normalized = error.toLowerCase()
+  if (/403|forbidden|scraperapi|quota|api key|unauthori/.test(normalized)) {
+    return 'Live price access was rejected. Try refreshing later or check the scraping connection.'
+  }
+  if (/timeout|timed out/.test(normalized)) {
+    return 'This source took too long to respond. Try again in a moment.'
+  }
+  if (/network|connect|empty response/.test(normalized)) {
+    return 'This source could not be reached right now. Try again later.'
+  }
+  return 'This source did not return live prices. Try another source or refresh later.'
+}

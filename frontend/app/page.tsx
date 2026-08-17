@@ -46,6 +46,16 @@ function LoadingState() {
   )
 }
 
+function friendlySearchError(error: ApiError | Error): string {
+  if (!(error instanceof ApiError)) return 'Something interrupted the comparison. Please try again.'
+  if (error.detail.kind === 'network') return 'Cannot reach the comparison service right now. Check your connection and try again.'
+  if (error.detail.kind === 'timeout') return 'The comparison is taking longer than expected. Please try again in a moment.'
+  if (error.detail.kind === 'server' && (error.detail.status === 403 || /scraperapi|forbidden|quota|api key|unauthori/i.test(error.message))) {
+    return 'The live price connection was rejected. Check the scraping connection or try again later.'
+  }
+  return 'The comparison service is temporarily unavailable. Please try again.'
+}
+
 function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error; onRetry: () => void; onChangeKeys: () => void }) {
   const isRetryable = error instanceof ApiError && error.isRetryable
   const isKeyError = error instanceof ApiError && error.detail.kind === 'server' && (error.detail.status === 403 || error.message.toLowerCase().includes('key'))
@@ -58,7 +68,7 @@ function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error;
           <div><p className="eyebrow text-[#9e4e21]">Something interrupted the scan</p><p className="mt-1 text-sm font-bold text-[#3e2418]">Search failed</p></div>
         </div>
         <div className="space-y-4 px-6 py-6">
-          <p className="text-sm leading-relaxed text-[#5f665b]">{error.message}</p>
+          <p className="text-sm leading-relaxed text-[#5f665b]">{friendlySearchError(error)}</p>
           {isRetryable && <p className="text-xs leading-relaxed text-[#8d9188]">The backend may be waking up after inactivity. Wait 30 seconds, then try again.</p>}
           <button onClick={onRetry} className="focus-ring flex w-full items-center justify-center gap-2 rounded-2xl bg-[#171a16] py-3 text-sm font-bold text-[#f5f4ef] transition hover:bg-[#303a27]"><RefreshCw className="h-4 w-4" /> {isRetryable ? 'Try again' : 'Search again'}</button>
           {isKeyError && <button onClick={onChangeKeys} className="focus-ring w-full rounded-2xl border border-[#dfe1d8] bg-[#f5f4ef] py-3 text-sm font-bold text-[#5f665b] transition hover:border-[#b7c19e] hover:text-[#171a16]">Update API keys</button>}
