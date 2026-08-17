@@ -1,6 +1,7 @@
 'use client'
+
 import { useRef } from 'react'
-import { Search, Loader2 } from 'lucide-react'
+import { ArrowUpRight, Loader2, Search } from 'lucide-react'
 
 interface Props {
   value: string
@@ -19,9 +20,12 @@ export function SearchBar({ value, onChange, onSearch, loading }: Props) {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="flex gap-2 items-stretch">
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="group flex items-center gap-2 rounded-[22px] border border-[#cfd4c5] bg-white/85 p-2 shadow-[0_16px_40px_rgba(44,52,31,0.09)] backdrop-blur transition-all duration-300 focus-within:border-[#9abb4d] focus-within:shadow-[0_18px_50px_rgba(137,173,53,0.17)]">
         <label htmlFor="search-input" className="sr-only">Search for a product</label>
+        <div className="ml-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#f0f3e9] text-[#657258]" aria-hidden>
+          <Search className="h-4 w-4" />
+        </div>
         <input
           id="search-input"
           ref={inputRef}
@@ -30,36 +34,29 @@ export function SearchBar({ value, onChange, onSearch, loading }: Props) {
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
           disabled={loading}
-          placeholder="e.g. wireless mouse, running shoes, iPhone 15..."
+          placeholder="Search a product, model, or category"
           autoFocus
           maxLength={200}
-          className="flex-1 px-4 py-3 rounded-xl border border-gray-300 bg-white
-                     text-gray-900 placeholder-gray-400 text-sm shadow-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed
-                     transition-colors"
+          className="min-w-0 flex-1 bg-transparent px-2 py-3 text-[15px] font-medium text-[#171a16] outline-none placeholder:text-[#a0a59a] disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
           onClick={submit}
           disabled={loading || value.trim().length < 2}
-          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800
-                     text-white font-semibold text-sm rounded-xl shadow-sm
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                     transition-colors whitespace-nowrap flex items-center gap-2"
+          className="focus-ring flex items-center gap-2 rounded-[16px] bg-[#171a16] px-5 py-3 text-sm font-bold text-[#f5f4ef] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#303a27] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 sm:px-6"
           aria-label={loading ? 'Searching…' : 'Search'}
         >
-          {loading
-            ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden /> Searching…</>
-            : <><Search className="w-4 h-4" aria-hidden /> Search</>
-          }
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ArrowUpRight className="h-4 w-4" aria-hidden />}
+          <span className="hidden sm:inline">{loading ? 'Searching…' : 'Find prices'}</span>
         </button>
       </div>
       {value.trim().length > 0 && value.trim().length < 2 && (
-        <p className="mt-1 text-xs text-amber-600 pl-1" role="alert">
-          Enter at least 2 characters
+        <p className="mt-2 pl-4 text-xs font-semibold text-[#b16c18]" role="alert">
+          Add one more character to start searching.
         </p>
       )}
+      <p className="mt-3 text-center text-[11px] font-medium uppercase tracking-[0.16em] text-[#9a9f95]">
+        Enter to search · Real listings · No sponsored rankings
+      </p>
     </div>
   )
 }

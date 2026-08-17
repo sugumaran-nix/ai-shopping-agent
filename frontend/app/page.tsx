@@ -1,6 +1,7 @@
 'use client'
+
 import { useState, useCallback, useEffect } from 'react'
-import { Zap, Bot, SlidersHorizontal, RefreshCw, AlertTriangle, WifiOff, Settings, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, Bot, CircleDot, RefreshCw, Settings, ShieldCheck, SlidersHorizontal, Sparkles, WifiOff, X, Zap } from 'lucide-react'
 import { SearchBar } from '@/components/SearchBar'
 import { SourceSection } from '@/components/SourceSection'
 import { AIRecommendation } from '@/components/AIRecommendation'
@@ -10,15 +11,13 @@ import {
   validateKeys, searchWithKeys, ApiError,
   type SearchResponse, type ScrapeStatus, STATUS_ORDER,
 } from '@/lib/api'
-import { getStoredKeys, saveKeys, clearKeys } from '@/lib/keys'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import { getStoredKeys, saveKeys } from '@/lib/keys'
 
 type AppState =
-  | { mode: 'checking' }          // Checking if server keys are configured
-  | { mode: 'ready' }             // Server has keys, ready to search
-  | { mode: 'needs-keys'; error?: string }  // No server keys, need user keys
-  | { mode: 'user-keys-set' }     // User has provided their own keys
+  | { mode: 'checking' }
+  | { mode: 'ready' }
+  | { mode: 'needs-keys'; error?: string }
+  | { mode: 'user-keys-set' }
 
 type SearchPhase =
   | { name: 'idle' }
@@ -26,116 +25,81 @@ type SearchPhase =
   | { name: 'done'; data: SearchResponse }
   | { name: 'error'; error: ApiError | Error }
 
-const EXAMPLES = [
-  'wireless mouse', 'running shoes', 'bluetooth earbuds',
-  'cotton kurti', 'iPhone 15', 'laptop stand',
-]
+const EXAMPLES = ['wireless mouse', 'running shoes', 'bluetooth earbuds', 'cotton kurti', 'iPhone 15', 'laptop stand']
 
 const FEATURES = [
-  { Icon: Zap,              iconClass: 'text-blue-600',   bgClass: 'bg-blue-50',   title: 'Live prices',        body: 'Scrapes 5 marketplaces in parallel. Every result labeled Live, Cached, or Down.' },
-  { Icon: Bot,              iconClass: 'text-purple-600', bgClass: 'bg-purple-50', title: 'AI recommendation',  body: 'Gemini reads the real prices returned and picks best value — no invented numbers.' },
-  { Icon: SlidersHorizontal,iconClass: 'text-green-600',  bgClass: 'bg-green-50',  title: 'Sort & filter',      body: 'Sort each source by price or rating independently.' },
+  { Icon: Zap, kicker: '01 / Signal', title: 'Live price pulse', body: 'Compare fresh listings across the marketplaces you already shop.' },
+  { Icon: Bot, kicker: '02 / Intelligence', title: 'A second opinion', body: 'AI reads the returned products and explains which option makes sense.' },
+  { Icon: SlidersHorizontal, kicker: '03 / Control', title: 'Your shortlist', body: 'Sort each source by price, rating, or best match without losing context.' },
 ]
 
 const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra']
 
-// ── Subcomponents ─────────────────────────────────────────────────────────────
-
 function LoadingState() {
   return (
-    <div className="py-20 flex flex-col items-center gap-6" role="status" aria-live="polite">
-      <div className="flex gap-3">
-        {SOURCES.map((src, i) => (
-          <div key={src} className="flex flex-col items-center gap-1.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 border-2 border-blue-200 animate-pulse"
-                 style={{ animationDelay: `${i * 120}ms` }} aria-hidden />
-            <span className="text-[10px] text-gray-400 font-medium">{src}</span>
+    <div className="animate-float-in py-20" role="status" aria-live="polite">
+      <div className="mx-auto max-w-xl rounded-[28px] border border-[#dfe1d8] bg-[#171a16] p-6 text-[#f5f4ef] shadow-[0_24px_80px_rgba(23,26,22,0.15)] sm:p-8">
+        <div className="mb-9 flex items-center justify-between">
+          <span className="eyebrow text-[#aeb8a2]">Live scan in progress</span>
+          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#c9f36b]"><span className="h-2 w-2 animate-glow-pulse rounded-full bg-[#c9f36b]" /> Searching</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {SOURCES.map((src, i) => (
+            <div key={src} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="h-10 rounded-xl bg-white/10 animate-pulse" aria-hidden />
+              <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[#aeb8a2]">{src}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex items-end justify-between gap-6">
+          <div>
+            <p className="font-display text-2xl leading-none sm:text-3xl">Checking every shelf.</p>
+            <p className="mt-2 text-sm leading-relaxed text-[#aeb8a2]">First searches take 10–30 seconds. Cached searches move faster.</p>
           </div>
-        ))}
-      </div>
-      <div className="text-center space-y-1">
-        <p className="font-semibold text-gray-700">Checking all marketplaces…</p>
-        <p className="text-sm text-gray-400">First search takes 10–30 seconds. Cached searches are faster.</p>
+          <div className="hidden h-12 w-12 flex-shrink-0 rounded-full border border-[#c9f36b]/40 p-1 sm:block"><div className="h-full w-full animate-spin rounded-full border-2 border-[#c9f36b] border-r-transparent" /></div>
+        </div>
       </div>
     </div>
   )
 }
 
-function ErrorState({ error, onRetry, onChangeKeys }: {
-  error: ApiError | Error
-  onRetry: () => void
-  onChangeKeys: () => void
-}) {
+function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error; onRetry: () => void; onChangeKeys: () => void }) {
   const isRetryable = error instanceof ApiError && error.isRetryable
-  const isKeyError = error instanceof ApiError && error.detail.kind === 'server' &&
-    (error.detail.status === 403 || error.message.toLowerCase().includes('key'))
+  const isKeyError = error instanceof ApiError && error.detail.kind === 'server' && (error.detail.status === 403 || error.message.toLowerCase().includes('key'))
 
   return (
-    <div className="py-16 flex justify-center" role="alert">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 bg-red-50 border-b border-red-100 flex items-center gap-3">
-          {isRetryable ? <WifiOff className="w-5 h-5 text-red-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
-          <p className="font-semibold text-red-800 text-sm">Search failed</p>
+    <div className="animate-float-in py-16" role="alert">
+      <div className="mx-auto max-w-lg overflow-hidden rounded-[28px] border border-[#e3cbbd] bg-white/85 shadow-[0_20px_70px_rgba(79,46,28,0.1)]">
+        <div className="flex items-center gap-3 border-b border-[#eadbd2] bg-[#fff6ef] px-6 py-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f6d4bc] text-[#9e4e21]">{isRetryable ? <WifiOff className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}</div>
+          <div><p className="eyebrow text-[#9e4e21]">Something interrupted the scan</p><p className="mt-1 text-sm font-bold text-[#3e2418]">Search failed</p></div>
         </div>
-        <div className="px-5 py-4 space-y-3">
-          <p className="text-sm text-gray-600 leading-relaxed">{error.message}</p>
-          {isRetryable && (
-            <p className="text-xs text-gray-400">
-              The backend may be waking up (free tier sleeps after inactivity). Wait 30 seconds then try again.
-            </p>
-          )}
-          <button onClick={onRetry}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm
-                             font-semibold rounded-xl transition-colors flex items-center
-                             justify-center gap-2">
-            <RefreshCw className="w-4 h-4" /> {isRetryable ? 'Try again' : 'Search again'}
-          </button>
-          {isKeyError && (
-            <button onClick={onChangeKeys}
-                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700
-                               text-sm font-medium rounded-xl transition-colors">
-              Update API keys
-            </button>
-          )}
+        <div className="space-y-4 px-6 py-6">
+          <p className="text-sm leading-relaxed text-[#5f665b]">{error.message}</p>
+          {isRetryable && <p className="text-xs leading-relaxed text-[#8d9188]">The backend may be waking up after inactivity. Wait 30 seconds, then try again.</p>}
+          <button onClick={onRetry} className="focus-ring flex w-full items-center justify-center gap-2 rounded-2xl bg-[#171a16] py-3 text-sm font-bold text-[#f5f4ef] transition hover:bg-[#303a27]"><RefreshCw className="h-4 w-4" /> {isRetryable ? 'Try again' : 'Search again'}</button>
+          {isKeyError && <button onClick={onChangeKeys} className="focus-ring w-full rounded-2xl border border-[#dfe1d8] bg-[#f5f4ef] py-3 text-sm font-bold text-[#5f665b] transition hover:border-[#b7c19e] hover:text-[#171a16]">Update API keys</button>}
         </div>
       </div>
     </div>
   )
 }
 
-function SummaryBar({ data, onRefresh, onChangeKeys }: {
-  data: SearchResponse
-  onRefresh: () => void
-  onChangeKeys: () => void
-}) {
+function SummaryBar({ data, onRefresh, onChangeKeys }: { data: SearchResponse; onRefresh: () => void; onChangeKeys: () => void }) {
   const counts: Record<ScrapeStatus, number> = { fresh: 0, stale: 0, unavailable: 0 }
-  data.results.forEach(r => counts[r.status]++)
+  data.results.forEach(r => { counts[r.status] += 1 })
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 py-1">
-      <div className="flex items-center gap-3 text-sm flex-wrap">
-        <span className="font-semibold text-gray-800">&ldquo;{data.query}&rdquo;</span>
-        <span className="text-gray-300 hidden sm:inline">·</span>
-        {counts.fresh > 0 && (
-          <span className="flex items-center gap-1 text-green-600">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden />
-            {counts.fresh} live
-          </span>
-        )}
-        {counts.stale > 0 && <span className="text-amber-600">{counts.stale} cached</span>}
-        {counts.unavailable > 0 && <span className="text-gray-400">{counts.unavailable} down</span>}
+    <div className="flex flex-col gap-4 rounded-[22px] border border-[#dfe1d8] bg-white/65 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        <span className="max-w-full truncate font-display text-xl text-[#171a16]">“{data.query}”</span>
+        <span className="hidden h-4 w-px bg-[#dfe1d8] sm:block" aria-hidden />
+        {counts.fresh > 0 && <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#62841f]"><CircleDot className="h-3.5 w-3.5" />{counts.fresh} live</span>}
+        {counts.stale > 0 && <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#a06a1d]">{counts.stale} cached</span>}
+        {counts.unavailable > 0 && <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#8a8f84]">{counts.unavailable} down</span>}
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onRefresh}
-                className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800
-                           font-medium transition-colors focus:outline-none focus:underline">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
-        </button>
-        <button onClick={onChangeKeys}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600
-                           transition-colors focus:outline-none"
-                title="Change API keys">
-          <Settings className="w-3.5 h-3.5" />
-        </button>
+        <button onClick={onRefresh} className="focus-ring flex items-center gap-2 rounded-full bg-[#171a16] px-3.5 py-2 text-xs font-bold text-[#f5f4ef] transition hover:bg-[#303a27]"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button>
+        <button onClick={onChangeKeys} className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button>
       </div>
     </div>
   )
@@ -143,46 +107,22 @@ function SummaryBar({ data, onRefresh, onChangeKeys }: {
 
 function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
   return (
-    <div className="space-y-10 pt-4">
+    <div className="animate-float-in space-y-12 pt-5 sm:pt-8">
       <div>
-        <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Try searching for</p>
+        <div className="mb-4 flex items-center justify-center gap-3 text-[#89907f]"><span className="h-px w-10 bg-[#cfd4c5]" /><span className="eyebrow">Start with a hunch</span><span className="h-px w-10 bg-[#cfd4c5]" /></div>
         <div className="flex flex-wrap justify-center gap-2">
-          {EXAMPLES.map(q => (
-            <button key={q} onClick={() => onExample(q)}
-                    className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-full
-                               text-gray-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50
-                               transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {q}
-            </button>
-          ))}
+          {EXAMPLES.map(q => <button key={q} onClick={() => onExample(q)} className="focus-ring rounded-full border border-[#d5d9cf] bg-white/55 px-3.5 py-2 text-xs font-semibold text-[#5f665b] transition duration-200 hover:-translate-y-0.5 hover:border-[#9abb4d] hover:bg-[#eff7d9] hover:text-[#35530a]">{q}</button>)}
         </div>
       </div>
-      <div className="grid sm:grid-cols-3 gap-4">
-        {FEATURES.map(({ Icon, iconClass, bgClass, title, body }) => (
-          <div key={title} className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3 shadow-sm">
-            <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center`}>
-              <Icon className={`w-5 h-5 ${iconClass}`} aria-hidden />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
-              <p className="text-xs text-gray-500 leading-relaxed mt-1">{body}</p>
-            </div>
-          </div>
-        ))}
+
+      <div className="grid gap-px overflow-hidden rounded-[26px] border border-[#dfe1d8] bg-[#dfe1d8] sm:grid-cols-3">
+        {FEATURES.map(({ Icon, kicker, title, body }, i) => <div key={title} className="group bg-white/75 p-6 transition-colors hover:bg-[#f0f5e4] sm:p-7"><div className="mb-12 flex items-start justify-between"><span className="eyebrow text-[#9a9f95]">{kicker}</span><Icon className="h-5 w-5 text-[#80934a] transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" aria-hidden /></div><h3 className="font-display text-2xl leading-none text-[#171a16]">{title}</h3><p className="mt-3 max-w-xs text-sm leading-relaxed text-[#73786f]">{body}</p></div>)}
       </div>
-      <div className="text-center">
-        <p className="text-xs text-gray-400 mb-3">Searches across</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {SOURCES.map(s => (
-            <span key={s} className="px-3 py-1 text-xs font-medium bg-white border border-gray-200 rounded-full text-gray-600 shadow-sm">{s}</span>
-          ))}
-        </div>
-      </div>
+
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center"><span className="eyebrow text-[#9a9f95]">We look across</span><div className="flex flex-wrap justify-center gap-2">{SOURCES.map(s => <span key={s} className="rounded-full border border-[#d5d9cf] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#73786f]">{s}</span>)}</div></div>
     </div>
   )
 }
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const [appState, setAppState] = useState<AppState>({ mode: 'checking' })
@@ -190,27 +130,15 @@ export default function HomePage() {
   const [phase, setPhase] = useState<SearchPhase>({ name: 'idle' })
   const [showKeySetup, setShowKeySetup] = useState(false)
 
-  // On mount: check if server has keys, or if user has stored keys
   useEffect(() => {
     const storedKeys = getStoredKeys()
-
     validateKeys(storedKeys.scraperapi || undefined, storedKeys.gemini || undefined)
       .then(status => {
-        if (status.scraping.available) {
-          setAppState(storedKeys.scraperapi ? { mode: 'user-keys-set' } : { mode: 'ready' })
-        } else {
-          // Server key not working, check if user has stored keys
-          if (storedKeys.scraperapi) {
-            setAppState({ mode: 'needs-keys', error: 'Your saved ScraperAPI key is no longer valid. Please enter a new one.' })
-          } else {
-            setAppState({ mode: 'needs-keys' })
-          }
-        }
+        if (status.scraping.available) setAppState(storedKeys.scraperapi ? { mode: 'user-keys-set' } : { mode: 'ready' })
+        else if (storedKeys.scraperapi) setAppState({ mode: 'needs-keys', error: 'Your saved ScraperAPI key is no longer valid. Please enter a new one.' })
+        else setAppState({ mode: 'needs-keys' })
       })
-      .catch(() => {
-        // Can't reach server at all
-        setAppState({ mode: 'needs-keys', error: 'Cannot reach the server. Check your connection.' })
-      })
+      .catch(() => setAppState({ mode: 'needs-keys', error: 'Cannot reach the server. Check your connection.' }))
   }, [])
 
   const getKeys = () => {
@@ -229,11 +157,7 @@ export default function HomePage() {
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
       setPhase({ name: 'error', error })
-
-      // If keys failed mid-search, prompt for new ones
-      if (err instanceof ApiError && err.detail.kind === 'server' && err.detail.status === 403) {
-        setAppState({ mode: 'needs-keys', error: 'API key quota exceeded. Please enter a new key.' })
-      }
+      if (err instanceof ApiError && err.detail.kind === 'server' && err.detail.status === 403) setAppState({ mode: 'needs-keys', error: 'API key quota exceeded. Please enter a new key.' })
     }
   }, [])
 
@@ -244,115 +168,28 @@ export default function HomePage() {
     if (query.trim().length >= 2) handleSearch(query)
   }, [query, handleSearch])
 
-  const handleChangeKeys = useCallback(() => {
-    setShowKeySetup(true)
-  }, [])
+  const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
 
-  // ── Loading check ──────────────────────────────────────────────────────────
-  if (appState.mode === 'checking') {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-gray-400">Connecting…</p>
-        </div>
-      </div>
-    )
-  }
+  if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Waking the comparison engine</p></div></div>
 
-  // ── Needs keys (no server key + no valid user key) ─────────────────────────
-  if (appState.mode === 'needs-keys' && !showKeySetup) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center space-y-2 pt-2">
-          <h1 className="text-3xl font-bold text-gray-900">AI Shopping Agent</h1>
-          <p className="text-gray-500 text-sm">Compare live prices across 5 marketplaces</p>
-        </div>
-        <ApiKeySetup
-          onKeysReady={handleKeysReady}
-          needsScraper={true}
-          needsGemini={true}
-          initialError={appState.error}
-        />
-      </div>
-    )
-  }
+  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-8"><section className="mx-auto max-w-3xl text-center"><div className="mb-5 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-5xl leading-[0.9] text-[#171a16] sm:text-7xl">Unlock your <span className="italic text-[#748e35]">smartest</span> shortlist.</h1><p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-[#73786f] sm:text-base">Add two free keys and turn product browsing into a clear, AI-assisted buying decision.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} initialError={appState.error} /></div>
 
-  // ── Key setup modal overlay ────────────────────────────────────────────────
   return (
     <ErrorBoundary>
-      {showKeySetup && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg relative">
-            <button
-              onClick={() => setShowKeySetup(false)}
-              className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-md
-                         flex items-center justify-center text-gray-500 hover:text-gray-700
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 z-10"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <ApiKeySetup
-              onKeysReady={handleKeysReady}
-              needsScraper={true}
-              needsGemini={true}
-            />
-          </div>
-        </div>
-      )}
+      {showKeySetup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171a16]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-lg"><button onClick={() => setShowKeySetup(false)} className="focus-ring absolute -right-2 -top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#c9f36b] text-[#171a16] shadow-xl transition hover:rotate-90" aria-label="Close"><X className="h-4 w-4" /></button><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} /></div></div>}
 
-      <div className="space-y-6">
-        {/* Hero + search */}
-        <section className="text-center space-y-4 pt-2">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
-            Find the best price<span className="text-blue-600"> instantly</span>
-          </h1>
-          <p className="text-gray-500 text-sm sm:text-base max-w-lg mx-auto">
-            Compare live prices across 5 major marketplaces with an AI-powered recommendation.
-          </p>
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            onSearch={handleSearch}
-            loading={phase.name === 'loading'}
-          />
+      <div className="space-y-10 sm:space-y-14">
+        <section className="mx-auto max-w-5xl text-center">
+          <div className="mb-6 flex items-center justify-center gap-3"><span className="eyebrow text-[#89907f]">The faster way to choose well</span><span className="rounded-full bg-[#c9f36b] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#35530a]">Live</span></div>
+          <h1 className="font-display text-[clamp(3.6rem,9vw,8.5rem)] leading-[0.82] text-[#171a16]">Shop less.<br /><span className="italic text-[#718b36]">Choose better.</span></h1>
+          <p className="mx-auto mt-7 max-w-xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare real prices across the places you trust, then let AI turn the noise into one confident next step.</p>
+          <div className="mt-8"><SearchBar value={query} onChange={setQuery} onSearch={handleSearch} loading={phase.name === 'loading'} /></div>
         </section>
 
         {phase.name === 'idle' && <IdleLanding onExample={q => { setQuery(q); handleSearch(q) }} />}
         {phase.name === 'loading' && <LoadingState />}
-        {phase.name === 'error' && (
-          <ErrorState
-            error={phase.error}
-            onRetry={() => handleSearch(query)}
-            onChangeKeys={handleChangeKeys}
-          />
-        )}
-
-        {phase.name === 'done' && (
-          <div className="space-y-5">
-            <SummaryBar
-              data={phase.data}
-              onRefresh={() => handleSearch(query)}
-              onChangeKeys={handleChangeKeys}
-            />
-            <AIRecommendation
-              recommendation={phase.data.ai_recommendation}
-              error={phase.data.ai_error}
-            />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {[...phase.data.results]
-                .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
-                .map(result => <SourceSection key={result.source} result={result} />)}
-            </div>
-            {phase.data.request_id && (
-              <p className="text-center text-[11px] text-gray-300 select-all"
-                 title="Include this ID when reporting issues">
-                Request ID: {phase.data.request_id}
-              </p>
-            )}
-          </div>
-        )}
+        {phase.name === 'error' && <ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} />}
+        {phase.name === 'done' && <div className="animate-float-in space-y-5"><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} />)}</div>{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )

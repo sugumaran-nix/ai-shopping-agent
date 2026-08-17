@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { ExternalLink, Star, ShoppingBag } from 'lucide-react'
+import { ArrowUpRight, ShoppingBag, Star } from 'lucide-react'
 import type { Product } from '@/lib/api'
 import { formatPrice } from '@/lib/api'
 
@@ -10,58 +10,17 @@ export function ProductCard({ product }: { product: Product }) {
       href={product.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex gap-3 p-3 rounded-xl bg-white border border-gray-100
-                 hover:border-blue-200 hover:shadow-md active:scale-[0.99]
-                 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="group flex gap-3 rounded-[18px] border border-[#e5e7df] bg-white/85 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#bfd48a] hover:bg-white hover:shadow-[0_10px_28px_rgba(42,53,25,0.08)] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9bc64c] focus-visible:ring-offset-2"
       aria-label={`${product.title}, ${price} — opens in new tab`}
     >
-      {/* Thumbnail */}
-      <div className="relative flex-shrink-0 w-16 h-16 rounded-lg bg-gray-50
-                      border border-gray-100 overflow-hidden">
-        {product.image_url ? (
-          <Image
-            src={product.image_url}
-            alt=""
-            fill
-            sizes="64px"
-            className="object-contain p-0.5"
-            unoptimized
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-200">
-            <ShoppingBag className="w-6 h-6" aria-hidden />
-          </div>
-        )}
+      <div className="relative h-[68px] w-[68px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[#eceee8] bg-[#f8f8f4]">
+        {product.image_url ? <Image src={product.image_url} alt="" fill sizes="68px" className="object-contain p-1 transition-transform duration-300 group-hover:scale-105" unoptimized /> : <div className="flex h-full w-full items-center justify-center text-[#c3c8bd]"><ShoppingBag className="h-6 w-6" aria-hidden /></div>}
       </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between">
-        <p className="text-xs text-gray-800 font-medium line-clamp-2 leading-snug
-                      group-hover:text-blue-700 transition-colors">
-          {product.title}
-        </p>
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <div>
-            <p className="text-sm font-bold text-gray-900 tabular-nums">{price}</p>
-            {product.rating !== null && (
-              <p className="flex items-center gap-0.5 text-[11px] text-gray-400 mt-0.5 tabular-nums">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" aria-hidden />
-                <span aria-label={`${product.rating} out of 5 stars`}>
-                  {product.rating.toFixed(1)}
-                </span>
-                {product.review_count !== null && (
-                  <span className="ml-0.5 text-gray-300">
-                    ({product.review_count.toLocaleString('en-IN')})
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-          <ExternalLink
-            className="w-3.5 h-3.5 text-gray-300 group-hover:text-blue-400 flex-shrink-0
-                       transition-colors mb-0.5"
-            aria-hidden
-          />
+      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+        <p className="line-clamp-2 text-xs font-bold leading-snug text-[#343a31] transition-colors group-hover:text-[#4e6d19]">{product.title}</p>
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <div><p className="text-base font-black tabular-nums tracking-[-0.03em] text-[#171a16]">{price}</p>{product.rating !== null && <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold tabular-nums text-[#92988e]"><Star className="h-3 w-3 fill-[#e3aa43] text-[#e3aa43]" aria-hidden /><span aria-label={`${product.rating} out of 5 stars`}>{product.rating.toFixed(1)}</span>{product.review_count !== null && <span className="text-[#b6bbb1]">({product.review_count.toLocaleString('en-IN')})</span>}</p>}</div>
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[#e2e5dc] text-[#a4aa9e] transition-all group-hover:border-[#b8d16f] group-hover:bg-[#eff7d9] group-hover:text-[#4e6d19]"><ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></span>
         </div>
       </div>
     </a>

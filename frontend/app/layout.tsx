@@ -21,56 +21,54 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#2563eb',
+  themeColor: '#c9f36b',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-full flex flex-col bg-gray-50">
-        {/* Skip to content */}
+      <body className="min-h-full flex flex-col bg-[#f5f4ef] text-[#171a16]">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3
-                     focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white
-                     focus:rounded-lg focus:text-sm focus:font-medium focus:shadow-lg
-                     focus:outline-none"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[#171a16] focus:text-[#f5f4ef] focus:rounded-full focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none"
         >
           Skip to main content
         </a>
 
-        {/* Header */}
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <img src="/logo.svg" alt="AI Shopping Agent logo" width={32} height={32}
-                   className="rounded-lg flex-shrink-0" />
-              <div>
-                <span className="font-bold text-gray-900 text-sm leading-none block">
-                  AI Shopping Agent
-                </span>
-                <span className="text-[11px] text-gray-400 leading-none block mt-0.5">
-                  Real prices · No ads · AI picks
-                </span>
+        <header className="sticky top-0 z-20 border-b border-[#dfe1d8]/90 bg-[#f5f4ef]/90 backdrop-blur-xl">
+          <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-5 sm:px-8">
+            <a href="#main" className="group flex items-center gap-3" aria-label="AI Shopping Agent home">
+              <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] bg-[#171a16] shadow-[0_8px_20px_rgba(23,26,22,0.14)]">
+                <img src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg opacity-95 transition-transform duration-300 group-hover:scale-110" />
+              </span>
+              <span className="hidden sm:block">
+                <span className="block text-[13px] font-bold tracking-[-0.02em] text-[#171a16]">AI Shopping Agent</span>
+                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a8f84]">Better buys, less browsing</span>
+              </span>
+            </a>
+
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#73786f] sm:flex">
+                <span className="h-2 w-2 rounded-full bg-[#9ed83f] shadow-[0_0_0_4px_rgba(158,216,63,0.18)]" aria-hidden />
+                Live comparison
+              </div>
+              <div className="rounded-full border border-[#cdd1c5] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#73786f]">
+                4 marketplaces
               </div>
             </div>
           </div>
         </header>
 
-        {/* Main */}
-        <main id="main" className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
-          {children}
+        <main id="main" className="paper-grid flex-1">
+          <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-12 lg:py-16">
+            {children}
+          </div>
         </main>
 
-        {/* Footer */}
-        <footer className="border-t border-gray-200 bg-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap
-                          items-center justify-between gap-3 text-xs text-gray-400">
-            <p>
-              Prices scraped live from public listings. Not affiliated with any marketplace.
-              Always verify before buying.
-            </p>
-            <p>Next.js · FastAPI · Gemini</p>
+        <footer className="border-t border-[#dfe1d8] bg-[#f5f4ef]">
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-[11px] font-medium text-[#858a81] sm:px-8">
+            <p className="max-w-xl leading-relaxed">Prices are gathered from public listings. Always verify the final price, availability, and delivery details before buying.</p>
+            <p className="uppercase tracking-[0.16em]">FastAPI · Next.js · Gemini</p>
           </div>
         </footer>
       </body>
