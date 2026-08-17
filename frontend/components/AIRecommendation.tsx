@@ -4,7 +4,7 @@ export function AIRecommendation({ recommendation, error }: { recommendation: st
   if (!recommendation && !error) return null
 
   if (error && !recommendation) {
-    return <div className="flex items-start gap-3 rounded-[22px] border border-[#dfe1d8] bg-white/60 px-5 py-4"><div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#f0f1ec] text-[#858a81]"><Bot className="h-4 w-4" aria-hidden /></div><div className="min-w-0"><p className="eyebrow text-[#858a81]">AI recommendation</p><p className="mt-1 text-sm leading-relaxed text-[#73786f]">{error}</p></div></div>
+    return <div className="flex items-center gap-3 rounded-[18px] border border-[#dfe1d8] bg-white/55 px-4 py-2.5"><div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#f0f1ec] text-[#858a81]"><Bot className="h-3.5 w-3.5" aria-hidden /></div><div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"><p className="eyebrow text-[#858a81]">AI recommendation</p><p className="truncate text-xs text-[#73786f]">{error}</p></div></div>
   }
 
   return <div className="overflow-hidden rounded-[24px] border border-[#384524] bg-[#171a16] text-[#f5f4ef] shadow-[0_20px_65px_rgba(36,46,23,0.14)]" role="region" aria-label="AI buying recommendation">

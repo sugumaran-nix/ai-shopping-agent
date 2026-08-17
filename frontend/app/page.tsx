@@ -89,9 +89,9 @@ function SummaryBar({ data, onRefresh, onChangeKeys }: { data: SearchResponse; o
   const counts: Record<ScrapeStatus, number> = { fresh: 0, stale: 0, unavailable: 0 }
   data.results.forEach(r => { counts[r.status] += 1 })
   return (
-    <div className="flex flex-col gap-4 rounded-[22px] border border-[#dfe1d8] bg-white/65 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <div className="flex flex-col gap-3 rounded-[20px] border border-[#dfe1d8] bg-white/65 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <span className="max-w-full truncate font-display text-xl text-[#171a16]">“{data.query}”</span>
+        <span className="max-w-full truncate font-display text-lg text-[#171a16]">“{data.query}”</span>
         <span className="hidden h-4 w-px bg-[#dfe1d8] sm:block" aria-hidden />
         {counts.fresh > 0 && <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#62841f]"><CircleDot className="h-3.5 w-3.5" />{counts.fresh} live</span>}
         {counts.stale > 0 && <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#a06a1d]">{counts.stale} cached</span>}
@@ -125,7 +125,7 @@ function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
 }
 
 function ResultsSearchHeader({ query, onChange, onSearch, loading, onNewSearch }: { query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onNewSearch: () => void }) {
-  return <div className="rounded-[24px] border border-[#dfe1d8] bg-white/60 p-4 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl lg:sticky lg:top-[88px] lg:z-10 sm:p-5"><div className="mb-4 flex items-center justify-between gap-3"><div><p className="eyebrow text-[#718239]">Live price desk</p><p className="mt-1 text-xs font-medium text-[#858a81]">Search again without leaving your shortlist.</p></div><button onClick={onNewSearch} className="focus-ring flex flex-shrink-0 items-center gap-1.5 rounded-full bg-[#c9f36b] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
+  return <div className="rounded-[20px] border border-[#dfe1d8] bg-white/60 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl lg:sticky lg:top-[88px] lg:z-10 sm:p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="eyebrow text-[#718239]">Live price desk</p><p className="mt-1 text-xs font-medium text-[#858a81]">Search again without leaving your shortlist.</p></div><button onClick={onNewSearch} className="focus-ring flex flex-shrink-0 items-center gap-1.5 rounded-full bg-[#c9f36b] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
 }
 
 export default function HomePage() {
@@ -191,7 +191,7 @@ export default function HomePage() {
 
   if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Waking the comparison engine</p></div></div>
 
-  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-8"><section className="mx-auto max-w-3xl text-center"><div className="mb-5 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-5xl leading-[0.9] text-[#171a16] sm:text-7xl">Unlock your <span className="italic text-[#748e35]">smartest</span> shortlist.</h1><p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-[#73786f] sm:text-base">Add two free keys and turn product browsing into a clear, AI-assisted buying decision.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} initialError={appState.error} /></div>
+  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5"><section className="mx-auto max-w-2xl text-center"><div className="mb-3 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">Private setup</span></div><h1 className="font-display text-4xl leading-[0.92] text-[#171a16] sm:text-6xl">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#73786f]">Add free keys to unlock live marketplace results and grounded recommendations.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} initialError={appState.error} /></div>
 
   return (
     <ErrorBoundary>
@@ -210,7 +210,7 @@ export default function HomePage() {
 
         {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onNewSearch={handleNewSearch} /><LoadingState /></div>}
         {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-float-in space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div>{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'done' && <div className="animate-float-in space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )
