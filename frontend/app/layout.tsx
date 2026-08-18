@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -40,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-5 sm:px-8">
             <a href="/" className="group flex items-center gap-3" aria-label="AI Shopping Agent home">
               <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] bg-[#171a16] shadow-[0_8px_20px_rgba(23,26,22,0.14)]">
-                <img src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg opacity-95 transition-transform duration-300 group-hover:scale-110" />
+                <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg opacity-95 transition-transform duration-300 group-hover:scale-110" />
               </span>
               <span className="hidden sm:block">
                 <span className="block text-[13px] font-bold tracking-[-0.02em] text-[#171a16]">AI Shopping Agent</span>

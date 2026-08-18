@@ -110,7 +110,7 @@ function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
       </div>
 
       <div className="grid gap-px overflow-hidden rounded-[26px] border border-[#dfe1d8] bg-[#dfe1d8] sm:grid-cols-3">
-        {FEATURES.map(({ Icon, kicker, title, body }, i) => <div key={title} className="group bg-white/75 p-6 transition-colors hover:bg-[#f0f5e4] sm:p-7"><div className="mb-12 flex items-start justify-between"><span className="eyebrow text-[#9a9f95]">{kicker}</span><Icon className="h-5 w-5 text-[#80934a] transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" aria-hidden /></div><h3 className="font-display text-2xl leading-none text-[#171a16]">{title}</h3><p className="mt-3 max-w-xs text-sm leading-relaxed text-[#73786f]">{body}</p></div>)}
+        {FEATURES.map(({ Icon, kicker, title, body }) => <div key={title} className="group bg-white/75 p-6 transition-colors hover:bg-[#f0f5e4] sm:p-7"><div className="mb-12 flex items-start justify-between"><span className="eyebrow text-[#9a9f95]">{kicker}</span><Icon className="h-5 w-5 text-[#80934a] transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" aria-hidden /></div><h3 className="font-display text-2xl leading-none text-[#171a16]">{title}</h3><p className="mt-3 max-w-xs text-sm leading-relaxed text-[#73786f]">{body}</p></div>)}
       </div>
 
       <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center"><span className="eyebrow text-[#9a9f95]">We look across</span><div className="flex flex-wrap justify-center gap-2">{SOURCES.map(s => <span key={s} className="rounded-full border border-[#d5d9cf] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#73786f]">{s}</span>)}</div></div>

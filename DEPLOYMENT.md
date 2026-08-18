@@ -68,11 +68,11 @@ Open a second terminal:
 
 ```bash
 cd frontend
-npm install
+pnpm install --frozen-lockfile
 cp .env.local.example .env.local
 # .env.local already points to http://localhost:8000 — no changes needed for local dev
 
-npm run dev
+pnpm run dev
 ```
 
 Open http://localhost:3000 — you should see the search UI.

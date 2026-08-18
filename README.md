@@ -117,11 +117,11 @@ API runs at **http://localhost:8000**. Try:
 
 ```bash
 cd frontend
-npm install
+pnpm install --frozen-lockfile
 cp .env.local.example .env.local
 # Set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
-npm run dev
+pnpm run dev
 ```
 
 Frontend runs at **http://localhost:3000**.

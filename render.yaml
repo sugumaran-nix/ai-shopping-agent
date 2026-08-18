@@ -43,7 +43,7 @@ services:
       - key: CONCURRENT_SCRAPE_LIMIT
         value: "4"
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-flash-latest
       - key: AI_MAX_PRODUCTS_PER_SOURCE
         value: "10"
       - key: AI_REQUEST_TIMEOUT_SECONDS

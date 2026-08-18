@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "pnpm run build",
   "outputDirectory": ".next",
-  "devCommand": "npm run dev",
-  "installCommand": "npm ci"
+  "devCommand": "pnpm run dev",
+  "installCommand": "pnpm install --frozen-lockfile"
 }

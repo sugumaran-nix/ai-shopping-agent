@@ -60,7 +60,7 @@ fi
 # ── Deploy frontend ────────────────────────────────────────────────────────────
 info "Deploying frontend to Vercel..."
 cd frontend
-npm ci --silent
+pnpm install --frozen-lockfile --silent
 npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 npx vercel build --prod --token="$VERCEL_TOKEN"
 FRONTEND_URL=$(npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")

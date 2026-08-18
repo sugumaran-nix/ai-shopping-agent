@@ -1,16 +1,16 @@
 FROM node:20-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+COPY package.json pnpm-lock.yaml ./
+RUN npm install --global pnpm@10.14.0 && pnpm install --frozen-lockfile --prod
 
 FROM node:20-slim AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN npm install --global pnpm@10.14.0 && pnpm install --frozen-lockfile
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
-RUN npm run build
+RUN pnpm run build
 
 FROM node:20-slim AS runner
 WORKDIR /app
