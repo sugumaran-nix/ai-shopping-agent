@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   keywords: ['price comparison', 'shopping', 'Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AI'],
   icons: {
     icon: '/icon.svg',
-    shortcut: '/favicon.ico',
+    shortcut: '/icon.svg',
     apple: '/icon-192.png',
   },
   openGraph: {
