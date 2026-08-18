@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 href="https://github.com/sugumaran-nix/ai-shopping-agent"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-[#cdd1c5] bg-white/60 text-[#73786f] transition hover:-translate-y-0.5 hover:border-[#9abb4d] hover:bg-[#eff7d9] hover:text-[#35530a] dark:border-[#39452d] dark:bg-[#1c2418] dark:text-[#c9f36b] dark:hover:border-[#718b36] dark:hover:bg-[#26321e]"
+                className="focus-ring flex h-8 w-8 items-center justify-center text-[#73786f] transition hover:-translate-y-0.5 hover:text-[#35530a] dark:text-[#c9f36b] dark:hover:text-[#d9f6a4]"
                 title="View source on GitHub"
                 aria-label="View source on GitHub"
               >
