@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Bot, Plus, RefreshCw, Settings, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
 import { SearchBar } from '@/components/SearchBar'
 import { SourceSection } from '@/components/SourceSection'
@@ -12,7 +12,7 @@ import {
   validateKeys, searchWithKeys, ApiError,
   type Product, type SearchResponse, STATUS_ORDER,
 } from '@/lib/api'
-import { getStoredKeys, saveKeys } from '@/lib/keys'
+import { getStoredKeys, hasKeys, saveKeys } from '@/lib/keys'
 
 type AppState =
   | { mode: 'checking' }
@@ -79,9 +79,33 @@ function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error;
 }
 
 function ResultsSearchHeader({ data, query, onChange, onSearch, loading, onRefresh, onChangeKeys, onNewSearch }: { data?: SearchResponse; query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onRefresh?: () => void; onChangeKeys: () => void; onNewSearch: () => void }) {
+  const [stuck, setStuck] = useState(false)
+  const stickyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let frame = 0
+    const updateStickyState = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        const top = stickyRef.current?.getBoundingClientRect().top ?? Infinity
+        const nextStuck = top <= 80
+        setStuck(current => current === nextStuck ? current : nextStuck)
+        frame = 0
+      })
+    }
+    updateStickyState()
+    window.addEventListener('scroll', updateStickyState, { passive: true })
+    window.addEventListener('resize', updateStickyState)
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', updateStickyState)
+      window.removeEventListener('resize', updateStickyState)
+    }
+  }, [])
+
   const freshCount = data?.results.filter(result => result.status === 'fresh').length ?? 0
   const visibleCount = data?.results.filter(result => result.products.length > 0).length ?? 0
-  return <div className="rounded-[20px] border border-[#dfe1d8] bg-white/65 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2.5"><p className="eyebrow text-[#718239]">Live price desk</p>{data && <span className="rounded-full bg-[#eff7d9] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64832b]">{freshCount || visibleCount} live</span>}</div><div className="flex items-center gap-2"><button onClick={onRefresh} disabled={!onRefresh || loading} className="focus-ring rounded-full border border-[#dfe1d8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#4e6d19] disabled:cursor-not-allowed disabled:opacity-40">{loading ? 'Searching…' : 'Refresh'}</button><button onClick={onChangeKeys} className="focus-ring flex h-8 w-8 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button><button onClick={onNewSearch} className="focus-ring flex items-center gap-1.5 rounded-full bg-[#c9f36b] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
+  return <><div className="rounded-[20px] border border-[#dfe1d8] bg-white/65 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2.5"><p className="eyebrow text-[#718239]">Live price desk</p>{data && <span className="rounded-full bg-[#eff7d9] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64832b]">{freshCount || visibleCount} live</span>}</div><div className="flex items-center gap-2"><button onClick={onRefresh} disabled={!onRefresh || loading} className="focus-ring rounded-full border border-[#dfe1d8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#4e6d19] disabled:cursor-not-allowed disabled:opacity-40">{loading ? 'Searching…' : 'Refresh'}</button><button onClick={onChangeKeys} className="focus-ring flex h-8 w-8 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button><button onClick={onNewSearch} className="focus-ring flex items-center gap-1.5 rounded-full bg-[#c9f36b] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div></div></div><div ref={stickyRef} className={`results-search-sticky ${stuck ? 'results-search-sticky--stuck' : ''}`}><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div></>
 }
 
 function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
@@ -123,7 +147,11 @@ export default function HomePage() {
 
   useEffect(() => {
     const storedKeys = getStoredKeys()
-      validateKeys(storedKeys.scraperapi || undefined, storedKeys.gemini || undefined, storedKeys.openrouter || undefined)
+    if (hasKeys() && storedKeys.scraperapi) {
+      setAppState({ mode: 'user-keys-set' })
+      return
+    }
+    validateKeys(storedKeys.scraperapi || undefined, storedKeys.gemini || undefined, storedKeys.openrouter || undefined)
       .then(status => {
         if (status.scraping.available) setAppState(storedKeys.scraperapi ? { mode: 'user-keys-set' } : { mode: 'ready' })
         else if (storedKeys.scraperapi) setAppState({ mode: 'needs-keys', error: 'Your saved ScraperAPI key is no longer valid. Please enter a new one.' })
@@ -160,8 +188,8 @@ export default function HomePage() {
   }, [query, handleSearch])
 
   const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
-  const topPickCandidates = phase.name === 'done' ? getTopPickCandidates(phase.data) : []
-  const bestProduct: Product | undefined = phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined
+  const topPickCandidates = useMemo(() => phase.name === 'done' ? getTopPickCandidates(phase.data) : [], [phase])
+  const bestProduct: Product | undefined = useMemo(() => phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined, [phase, topPickCandidates])
   const handleNewSearch = useCallback(() => {
     setQuery('')
     setPhase({ name: 'idle' })

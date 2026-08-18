@@ -17,6 +17,7 @@ import httpx
 
 from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
+from utils.headers import extract_image_url, normalize_image_url
 
 logger = logging.getLogger("scraper.myntra")
 settings = get_settings()
@@ -235,7 +236,7 @@ class MyntraScraper:
                 return None
             landing = item.get("landingPageUrl") or item.get("url") or item.get("slugV2") or item.get("slug") or ""
             url = landing if str(landing).startswith("http") else f"{_BASE}/{str(landing).lstrip('/')}" if landing else _BASE
-            image = item.get("searchImage") or item.get("image") or item.get("imageUrl")
+            image = normalize_image_url(item.get("searchImage") or item.get("image") or item.get("imageUrl"), _BASE)
             return Product(
                 source=self.source,
                 title=title,
@@ -321,7 +322,7 @@ class MyntraScraper:
             }
             image_el = card.select_one("img")
             if image_el:
-                item["image"] = image_el.get("src") or image_el.get("data-src")
+                item["image"] = extract_image_url(image_el, _BASE)
             product = self._product_from_item(item)
             if product:
                 products.append(product)

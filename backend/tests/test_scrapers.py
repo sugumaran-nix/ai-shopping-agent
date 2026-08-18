@@ -1,8 +1,9 @@
 """Unit tests for scraper parsing logic (no network calls)."""
 import pytest
+from bs4 import BeautifulSoup
 from scrapers.amazon import AmazonScraper
 from scrapers.flipkart import FlipkartScraper
-from utils.headers import clean_price, clean_rating, clean_reviews, make_absolute_url
+from utils.headers import clean_price, clean_rating, clean_reviews, extract_image_url, make_absolute_url, normalize_image_url
 
 
 class TestCleanPrice:
@@ -60,6 +61,23 @@ class TestMakeAbsoluteUrl:
 
     def test_empty_returns_empty(self):
         assert make_absolute_url("", "https://example.com") == ""
+
+
+class TestImageUrls:
+    def test_prefers_lazy_image_over_placeholder_src(self):
+        soup = BeautifulSoup('<img src="/transparent.gif" data-src="//cdn.example.com/product.jpg">', "html.parser")
+        assert extract_image_url(soup.img, "https://shop.example.com") == "https://cdn.example.com/product.jpg"
+
+    def test_normalizes_relative_json_image(self):
+        assert normalize_image_url("/images/product.jpg", "https://shop.example.com") == "https://shop.example.com/images/product.jpg"
+
+    def test_uses_srcset_when_direct_attributes_are_missing(self):
+        soup = BeautifulSoup('<img srcset="/small.jpg 320w, /large.jpg 800w">', "html.parser")
+        assert extract_image_url(soup.img, "https://shop.example.com") == "https://shop.example.com/large.jpg"
+
+    def test_rejects_placeholder_and_data_urls(self):
+        assert normalize_image_url("https://cdn.example.com/placeholder.png") is None
+        assert normalize_image_url("data:image/gif;base64,AAAA") is None
 
 
 class TestAmazonParser:

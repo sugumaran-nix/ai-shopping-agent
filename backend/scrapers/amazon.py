@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from models import Source
 from scrapers.base import BaseScraper
-from utils.headers import clean_price, clean_rating, clean_reviews, make_absolute_url
+from utils.headers import clean_price, clean_rating, clean_reviews, extract_image_url, make_absolute_url
 
 _BASE = "https://www.amazon.in"
 logger = logging.getLogger("scraper.amazon")
@@ -113,7 +113,7 @@ class AmazonScraper(BaseScraper):
 
             # ── Image ──────────────────────────────────────────────────────
             img_el = card.select_one("img.s-image") or card.select_one("img[data-image-latency]")
-            image_url = img_el.get("src") if img_el else None
+            image_url = extract_image_url(img_el, _BASE)
 
             # ── Currency ───────────────────────────────────────────────────
             sym_el = card.select_one("span.a-price-symbol")

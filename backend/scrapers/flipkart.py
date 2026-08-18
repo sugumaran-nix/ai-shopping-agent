@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 from models import Source
 from scrapers.base import BaseScraper
-from utils.headers import clean_price, clean_rating, make_absolute_url
+from utils.headers import clean_price, clean_rating, extract_image_url, make_absolute_url
 
 _BASE = "https://www.flipkart.com"
 
@@ -55,7 +55,7 @@ class FlipkartScraper(BaseScraper):
             rating = clean_rating(rating_el.get_text(strip=True)) if rating_el else None
 
             img_el = container.select_one("img")
-            image_url = img_el.get("src") if img_el else None
+            image_url = extract_image_url(img_el, _BASE)
 
             results.append({
                 "title": title,

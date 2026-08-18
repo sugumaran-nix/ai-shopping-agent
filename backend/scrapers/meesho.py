@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 
 from models import Source
 from scrapers.base import BaseScraper
-from utils.headers import clean_price, make_absolute_url
+from utils.headers import clean_price, extract_image_url, make_absolute_url, normalize_image_url
 
 _BASE = "https://www.meesho.com"
 logger = logging.getLogger("scraper.meesho")
@@ -98,7 +98,7 @@ class MeeshoScraper(BaseScraper):
             href = link_el.get("href", "") if link_el else ""
             url = make_absolute_url(href, _BASE) if href else _BASE
             img_el = card.select_one("img")
-            image_url = img_el.get("src") or img_el.get("data-src") if img_el else None
+            image_url = extract_image_url(img_el, _BASE)
 
             results.append({
                 "title": title,
@@ -145,7 +145,7 @@ class MeeshoScraper(BaseScraper):
                     "rating": item.get("rating"),
                     "review_count": item.get("rating_count"),
                     "url": f"{_BASE}/{slug}" if slug else _BASE,
-                    "image_url": item.get("cover_image") or item.get("image_url"),
+                    "image_url": normalize_image_url(item.get("cover_image") or item.get("image_url"), _BASE),
                 })
         except Exception:  # noqa: BLE001
             pass
