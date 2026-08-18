@@ -184,9 +184,15 @@ class MyntraScraper:
     @staticmethod
     def _term_matches_title(term: str, title_tokens: set[str], title: str) -> bool:
         aliases = {
-            "phone": {"phone", "mobile", "smartphone", "cell"},
+            "phone": {"phone", "mobile", "smartphone", "cell", "case", "cover", "back"},
             "case": {"case", "cases", "cover", "covers", "back", "bumper", "flip", "wallet", "pouch"},
             "cover": {"cover", "covers", "case", "cases", "back", "bumper", "flip", "wallet", "pouch"},
+            "kurti": {"kurti", "kurtis", "kurta", "kurtas", "tunic"},
+            "kurta": {"kurti", "kurtis", "kurta", "kurtas", "tunic"},
+            "earbuds": {"earbuds", "earbud", "buds", "airpods", "earphones"},
+            "wireless": {"wireless", "bluetooth", "tws"},
+            "shoes": {"shoes", "shoe", "sneakers", "trainers", "footwear"},
+            "running": {"running", "jogging", "sports", "athletic"},
         }
         candidates = aliases.get(term, {term})
         if any(candidate in title_tokens or candidate in title for candidate in candidates):
@@ -202,7 +208,7 @@ class MyntraScraper:
 
         first_model_index = next((index for index, term in enumerate(terms) if any(char.isdigit() for char in term)), None)
         identity_terms = terms[: first_model_index + 1] if first_model_index is not None else []
-        minimum_matches = max(1, (len(terms) + 1) // 2)
+        minimum_matches = len(terms)
         scored: list[tuple[int, int, Product]] = []
         for index, product in enumerate(products):
             title = re.sub(r"[^a-z0-9 ]+", " ", product.title.lower())
