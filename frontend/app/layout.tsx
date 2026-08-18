@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import type { Metadata, Viewport } from 'next'
+import Link from 'next/link'
 import './globals.css'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <header className="sticky top-0 z-20 border-b border-[#dfe1d8]/90 bg-[#f5f4ef]/90 backdrop-blur-xl">
           <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-5 sm:px-8">
-            <a href="/" className="group flex items-center gap-3" aria-label="AI Shopping Agent home">
+            <Link href="/" className="group flex items-center gap-3" aria-label="AI Shopping Agent home">
               <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] bg-[#171a16] shadow-[0_8px_20px_rgba(23,26,22,0.14)]">
                 <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg opacity-95 transition-transform duration-300 group-hover:scale-110" />
               </span>
@@ -47,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="block text-[13px] font-bold tracking-[-0.02em] text-[#171a16]">AI Shopping Agent</span>
                 <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a8f84]">Better buys, less browsing</span>
               </span>
-            </a>
+            </Link>
 
             <div className="flex items-center gap-2.5 sm:gap-3">
               <a

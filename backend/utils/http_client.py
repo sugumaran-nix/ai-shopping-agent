@@ -1,9 +1,9 @@
 """Shared provider client for marketplace HTML retrieval.
 
-The client intentionally keeps provider attempts bounded: ScrapingAnt is tried
-once, then Bright Data Web Unlocker is tried once. Direct HTTP and Playwright
-paths remain owned by their individual scrapers and run before this Plan C
-provider fallback.
+The client intentionally keeps provider attempts bounded: ScraperAPI is tried
+once, then ScrapingAnt, then Bright Data Web Unlocker once each. Direct HTTP
+and Playwright paths remain owned by their individual scrapers and run before
+this Plan C provider fallback.
 """
 from __future__ import annotations
 

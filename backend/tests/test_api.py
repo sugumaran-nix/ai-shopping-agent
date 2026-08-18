@@ -75,6 +75,27 @@ class TestSearch:
             assert field in data
 
     @patch("main.run_search", new_callable=AsyncMock)
+    def test_provider_error_is_redacted_from_public_response(self, mock_run):
+        mock_run.return_value = SearchResponse(
+            query="mouse",
+            results=[SourceResult(source=Source.AMAZON, status=ScrapeStatus.UNAVAILABLE, error="ScraperAPI HTTP 403; api_key=secret")],
+        )
+        r = client.get("/api/v1/search?q=mouse")
+        assert r.status_code == 200
+        error = r.json()["results"][0]["error"]
+        assert "ScraperAPI" not in error
+        assert "secret" not in error
+        assert "temporarily unavailable" in error
+
+    @patch("main.allow_request", new_callable=AsyncMock)
+    def test_rate_limit_returns_retry_after(self, mock_allow):
+        mock_allow.return_value = (False, 17)
+        r = client.get("/api/v1/search?q=mouse")
+        assert r.status_code == 429
+        assert r.headers["Retry-After"] == "17"
+        assert "Too many requests" in r.json()["error"]["message"]
+
+    @patch("main.run_search", new_callable=AsyncMock)
     def test_request_id_header_returned(self, mock_run):
         mock_run.return_value = SearchResponse(query="q", results=[])
         r = client.get("/api/v1/search?q=mouse")
@@ -93,6 +114,14 @@ class TestSearch:
         assert r.headers.get("X-Content-Type-Options") == "nosniff"
         assert r.headers.get("X-Frame-Options") == "DENY"
         assert r.headers.get("X-XSS-Protection") == "1; mode=block"
+
+    @patch("main.run_search", new_callable=AsyncMock)
+    def test_invalid_request_id_is_replaced(self, mock_run):
+        mock_run.return_value = SearchResponse(query="q", results=[])
+        r = client.get("/api/v1/search?q=mouse", headers={"X-Request-ID": "bad\\r\\nvalue"})
+        assert r.status_code == 200
+        assert "\\r" not in r.headers["X-Request-ID"]
+        assert "\\n" not in r.headers["X-Request-ID"]
 
 
 class TestCacheStats:

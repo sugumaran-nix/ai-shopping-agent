@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.3-slim-bookworm
 
 # Don't run as root
 RUN useradd -m -u 1001 app

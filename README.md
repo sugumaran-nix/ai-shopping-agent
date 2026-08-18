@@ -32,8 +32,9 @@ Replace the line below with a recorded product-search GIF when available.
 - **No fabricated listings** — Products come from live scrapes or cached real results and are labeled `fresh`, `stale`, or `unavailable`.
 - **Resilient scraping** — ScraperAPI is the simple default, with optional ScrapingAnt and Bright Data backups, bounded provider attempts, and stale cache fallback.
 - **Myntra relevance filtering** — Query-aware parsing and identity matching prevent unrelated products from appearing in the results.
-- **Stampede-safe caching** — Fresh-cache short-circuits, single-flight locking, disk-backed persistence, and optional Redis reduce repeated upstream requests.
+- **Stampede-safe caching** — Fresh-cache short-circuits, single-flight locking, JSON-safe SQLite persistence, and optional Redis reduce repeated upstream requests.
 - **Session-only provider access** — User-provided provider credentials stay in the browser session, are forwarded through request headers, and are cleared when the tab session ends.
+- **Production safeguards** — Exact-origin CORS validation, public search/key-validation rate limits, generic public errors, protected operations endpoints, pinned container images, and a production CSP reduce avoidable abuse and leakage.
 - **Editorial responsive UI** — Dark/light mode, local search suggestions, responsive cards, inline marketplace scrolling, smooth loading states, and a compact sticky results search bar.
 - **Resilient product images** — Lazy-loaded and relative image URLs are normalized, placeholders are rejected, and failed remote images receive a clean fallback tile.
 
@@ -43,14 +44,14 @@ Replace the line below with a recorded product-search GIF when available.
 
 | Layer | Technology |
 |---|---|
-| Frontend framework | Next.js 14 App Router |
+| Frontend framework | Next.js 15 App Router |
 | Frontend language | TypeScript |
 | Styling | Tailwind CSS and custom editorial UI styles |
 | Backend framework | FastAPI |
 | Scraping and HTTP | httpx, ScraperAPI, ScrapingAnt, Bright Data, BeautifulSoup, lxml |
 | Recommendation engine | Deterministic weighted scorer using normalized price, rating, and review count |
 | Validation | Pydantic and pydantic-settings |
-| Cache | Diskcache by default, optional Redis for shared persistence |
+| Cache | JSON-safe SQLite by default, optional Redis for shared persistence |
 | Deployment | Vercel frontend, Render backend, Docker-compatible services |
 
 ---
@@ -63,7 +64,7 @@ ai-shopping-agent/
 │   ├── main.py                 # FastAPI routes, headers, health and key validation
 │   ├── config.py               # Validated environment settings
 │   ├── models.py               # Product and response schemas
-│   ├── cache.py                # Disk-backed cache with optional Redis backend
+│   ├── cache.py                # JSON-safe SQLite cache with optional Redis backend
 │   ├── scrapers/
 │   │   ├── base.py             # Shared fetch, parse, validate, cache and fallback flow
 │   │   ├── amazon.py           # Amazon search parser
@@ -130,7 +131,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create `backend/.env` with server-side defaults if desired. User-entered keys from the frontend can be used instead.
+Create `backend/.env` with server-side defaults if desired. User-entered keys from the frontend can be used instead. Start from `backend/.env.example` and never commit populated environment files.
 
 ```env
 SCRAPERAPI_KEY=
@@ -151,7 +152,7 @@ Start FastAPI:
 uvicorn main:app --reload --port 8000
 ```
 
-The backend exposes a cheap liveness check at [http://localhost:8000/api/ping](http://localhost:8000/api/ping), interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs), and the search route at `/api/v1/search?q=...`.
+The backend exposes a cheap liveness check at [http://localhost:8000/api/ping](http://localhost:8000/api/ping), interactive API documentation at [http://localhost:8000/api/docs](http://localhost:8000/api/docs), and the search route at `/api/v1/search?q=...`.
 
 ### 3. Configure and run the frontend
 
@@ -208,7 +209,7 @@ Every result is labeled according to its source state:
 
 ## 🔐 API-Key Privacy Model
 
-The setup screen asks for one ScraperAPI key first. An optional “More provider options” section accepts ScrapingAnt and Bright Data backups. All credentials stay in `sessionStorage` and are forwarded only through request headers; the backend does not store them in the scrape cache.
+The setup screen asks for one ScraperAPI key first. An optional “More provider options” section accepts ScrapingAnt and Bright Data backups. All credentials stay in `sessionStorage` and are forwarded only through request headers; the backend does not store them in the scrape cache. Public search and key-validation routes are rate-limited, while production health and cache operations require `X-Ops-Token`.
 
 Refreshing the page or returning home keeps the keys available in the same browser tab session. Closing the tab clears the session, after which the setup screen appears again. This provides a practical balance between convenience and session-only access.
 

@@ -1,18 +1,18 @@
-FROM node:20-slim AS deps
+FROM node:20.18.3-slim-bookworm AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN npm install --global pnpm@10.14.0 && pnpm install --frozen-lockfile --prod
 
-FROM node:20-slim AS builder
+FROM node:20.18.3-slim-bookworm AS builder
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN npm install --global pnpm@10.14.0 && pnpm install --frozen-lockfile
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN pnpm run build
 
-FROM node:20-slim AS runner
+FROM node:20.18.3-slim-bookworm AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 # Next.js standalone output is self-contained

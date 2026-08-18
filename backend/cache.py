@@ -1,10 +1,10 @@
-"""Two-tier cache with optional Redis persistence and disk fallback."""
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
-import pickle
+import sqlite3
 import time
 from dataclasses import dataclass
 from threading import Lock
@@ -19,6 +19,19 @@ _cache_backend_name = "none"
 _cache_lock = Lock()
 _stats_lock = Lock()
 _stats: dict[str, int] = {"hits_fresh": 0, "hits_stale": 0, "misses": 0, "sets": 0}
+
+
+def _encode(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _decode(value: str | bytes) -> Any:
+    decoded = json.loads(value)
+    # Cache records are written as (data, stored_at). JSON represents tuples as
+    # lists, so restore only that known two-item envelope to preserve callers.
+    if isinstance(decoded, list) and len(decoded) == 2 and isinstance(decoded[1], (int, float)):
+        return decoded[0], decoded[1]
+    return decoded
 
 
 class _NoOpCache:
@@ -42,7 +55,7 @@ class _NoOpCache:
 
 
 class _RedisCache:
-    """Small diskcache-compatible adapter over a Redis deployment."""
+    """Small JSON-serializing cache adapter over a Redis deployment."""
 
     def __init__(self, url: str) -> None:
         import redis
@@ -56,10 +69,10 @@ class _RedisCache:
 
     def get(self, key: str, default: Any = None) -> Any:
         raw = self.client.get(self._key(key))
-        return pickle.loads(raw) if raw is not None else default
+        return _decode(raw) if raw is not None else default
 
     def set(self, key: str, value: Any) -> None:
-        self.client.set(self._key(key), pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL))
+        self.client.set(self._key(key), _encode(value))
 
     def delete(self, key: str) -> None:
         self.client.delete(self._key(key))
@@ -76,6 +89,56 @@ class _RedisCache:
         return sum(1 for _ in self.client.scan_iter(match=f"{self.prefix}*", count=500))
 
 
+class _SQLiteCache:
+    """Small file-backed JSON cache with no executable deserialization."""
+
+    def __init__(self, directory: str) -> None:
+        self.directory = directory
+        self.path = os.path.join(directory, "cache.sqlite3")
+        self._initialize()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.path, timeout=5)
+        connection.execute("PRAGMA journal_mode=WAL")
+        return connection
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS entries (key TEXT PRIMARY KEY, value TEXT NOT NULL, stored_at REAL NOT NULL)"
+            )
+            connection.execute("CREATE INDEX IF NOT EXISTS entries_stored_at ON entries(stored_at)")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        with self._connect() as connection:
+            row = connection.execute("SELECT value FROM entries WHERE key = ?", (key,)).fetchone()
+        return _decode(row[0]) if row else default
+
+    def set(self, key: str, value: Any) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO entries(key, value, stored_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, stored_at = excluded.stored_at",
+                (key, _encode(value), time.time()),
+            )
+
+    def delete(self, key: str) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM entries WHERE key = ?", (key,))
+
+    def clear(self) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM entries")
+
+    def volume(self) -> int:
+        return os.path.getsize(self.path) if os.path.exists(self.path) else 0
+
+    def __len__(self) -> int:
+        with self._connect() as connection:
+            row = connection.execute("SELECT COUNT(*) FROM entries").fetchone()
+        return int(row[0]) if row else 0
+
+
 def _disk_cache() -> Any:
     s = get_settings()
     try:
@@ -84,8 +147,7 @@ def _disk_cache() -> Any:
         with open(test_path, "w") as f:
             f.write("ok")
         os.remove(test_path)
-        from diskcache import Cache
-        return Cache(s.cache_dir, size_limit=s.cache_max_size_bytes)
+        return _SQLiteCache(s.cache_dir)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Cache directory %s unavailable (%s); cache disabled", s.cache_dir, type(exc).__name__)
         return _NoOpCache()
@@ -107,16 +169,14 @@ def _get_cache() -> Any:
                 logger.info("Cache initialised with Redis backend")
                 return _cache_instance
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Redis cache unavailable (%s); falling back to disk cache", type(exc).__name__)
+                logger.warning("Redis cache unavailable (%s); falling back to SQLite cache", type(exc).__name__)
         _cache_instance = _disk_cache()
-        _cache_backend_name = "diskcache" if not isinstance(_cache_instance, _NoOpCache) else "none"
+        _cache_backend_name = "sqlite" if not isinstance(_cache_instance, _NoOpCache) else "none"
         logger.info("Cache initialised with %s backend", _cache_backend_name)
         return _cache_instance
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
-
-
 def _key(source: str, query: str) -> str:
     return f"{source}:{hashlib.sha256(query.strip().lower().encode()).hexdigest()}"
 
@@ -179,7 +239,7 @@ def get_stats() -> dict:
             "entry_count": len(cache),
             "cache_available": not isinstance(cache, _NoOpCache),
             "backend": _cache_backend_name,
-            "persistent": _cache_backend_name in {"redis", "diskcache"},
+            "persistent": _cache_backend_name in {"redis", "sqlite"},
         }
 
 

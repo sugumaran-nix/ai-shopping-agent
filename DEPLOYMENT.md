@@ -41,7 +41,8 @@ python -m playwright install chromium
 cp .env.example .env
 ```
 
-Open `backend/.env` and fill in at minimum:
+Open `backend/.env` and fill in at minimum. The repository root contains a safe `.env.example`; copy it locally and never commit the populated file.
+
 ```
 SCRAPERAPI_KEY=your_scraperapi_key
 SCRAPINGANT_API_KEY=your_scrapingant_key
@@ -115,7 +116,10 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 | `SCRAPINGANT_API_KEY` | Optional | — | Tried second in provider fallback |
 | `BRIGHTDATA_API_KEY` | Optional | — | Tried third in provider fallback |
 | `BRIGHTDATA_ZONE` | With Bright Data | `web_unlocker1` | Web Unlocker zone name |
-| `ALLOWED_ORIGINS` | ✅ in prod | `http://localhost:3000` | Your Vercel URL — prevents cross-origin abuse |
+| `ALLOWED_ORIGINS` | ✅ in prod | `http://localhost:3000` | Exact HTTPS Vercel origin(s); wildcard and localhost are rejected in production |
+| `OPS_TOKEN` | ✅ in prod for ops routes | — | Long random token for health, cache stats, and cache-clear endpoints |
+| `RATE_LIMIT_WINDOW_SECONDS` | — | `60` | Fixed-window public API limit duration |
+| `RATE_LIMIT_MAX_REQUESTS` | — | `60` | Requests per client and route within the window |
 | `ENVIRONMENT` | — | `development` | Set to `production` on Render |
 | `LOG_LEVEL` | — | `INFO` | `DEBUG` for more detail, `WARNING` for quieter logs |
 | `CACHE_TTL_SECONDS` | — | `1800` | How long a fresh scrape stays fresh (30 min) |
@@ -134,7 +138,7 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 Run through this after every production deploy:
 
 - [ ] `GET /api/ping` returns `{"status":"ok"}`
-- [ ] `GET /api/v1/health` — at least 2 sources show `healthy: true`
+- [ ] `GET /api/v1/health` with the `X-Ops-Token` header — at least 2 sources show `healthy: true`
 - [ ] Search for "wireless mouse" — results appear with prices
 - [ ] Deterministic top-three ranking appears with price, rating, review, and total scores
 - [ ] The ranking card states the 40% price, 40% rating, and 20% review weighting
@@ -183,7 +187,7 @@ If a scraper returns `healthy: false` with `"parsed 0 valid products"`:
 ### Cache stats
 
 ```bash
-curl https://YOUR-SERVICE.onrender.com/api/v1/cache/stats
+curl -H "X-Ops-Token: $OPS_TOKEN" https://YOUR-SERVICE.onrender.com/api/v1/cache/stats
 ```
 ```json
 {
@@ -207,6 +211,7 @@ A healthy deployment should have `hit_rate_pct > 70%` after a few hours of traff
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | All sources `unavailable` | Provider keys missing or invalid | Check Render env vars and verify at least one provider credential |
+| Operations endpoint returns `404` | Missing or invalid `X-Ops-Token` in production | Send the exact Render `OPS_TOKEN` in the request header |
 | Recommendation summary unavailable | No valid products returned from any source | Check `/api/v1/health`, provider credentials, and source availability |
 | One source always `unavailable` | That site's HTML changed | Run `/api/v1/health`, update that scraper's `parse()` |
 | Frontend CORS error in browser | `ALLOWED_ORIGINS` not set to your Vercel URL | Update Render env var → redeploy |

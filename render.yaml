@@ -19,7 +19,14 @@ services:
       # Example: https://ai-shopping-agent-abc.vercel.app
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: OPS_TOKEN
+        sync: false
 
+      # ── Public endpoint protection
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "60"
 
       # ── Cache — /tmp is always writable on Render free tier ───────────────
       # Note: /tmp is ephemeral (cleared on redeploy/restart).

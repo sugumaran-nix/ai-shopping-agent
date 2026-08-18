@@ -15,6 +15,7 @@ Routes:
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import time
 import uuid
@@ -30,6 +31,7 @@ from models import ErrorDetail, ErrorResponse, HealthCheckResult, SearchResponse
 from services.aggregator import run_search
 from services.browser_manager import close_browser
 from services.health_monitor import run_health_check
+from services.rate_limiter import allow_request
 
 settings = get_settings()
 
@@ -81,9 +83,9 @@ app = FastAPI(
         "Recommendations are calculated strictly from the real data returned — "
         "no invented prices or products."
     ),
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if not settings.is_production else None,
+    redoc_url="/api/redoc" if not settings.is_production else None,
+    openapi_url="/api/openapi.json" if not settings.is_production else None,
     lifespan=lifespan,
 )
 
@@ -92,7 +94,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "DELETE"],
     allow_headers=[
         "Content-Type",
         "X-Request-ID",
@@ -100,6 +102,7 @@ app.add_middleware(
         "X-ScrapingAnt-Key",
         "X-BrightData-Key",
         "X-BrightData-Zone",
+        "X-Ops-Token",
     ],
 )
 
@@ -107,7 +110,10 @@ app.add_middleware(
 # ── Middleware ────────────────────────────────────────────────────────────────
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+    candidate = request.headers.get("X-Request-ID", "")
+    request_id = candidate if candidate and len(candidate) <= 64 and all(
+        char.isalnum() or char in "._:-" for char in candidate
+    ) else str(uuid.uuid4())[:8]
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
@@ -166,7 +172,42 @@ async def http_exception_handler(request: Request, exc: HTTPException):
                 request_id=req_id,
             )
         ).model_dump(),
+        headers={**(exc.headers or {}), "X-Request-ID": req_id},
     )
+
+
+# ── Route guards ───────────────────────────────────────────────────────────────
+def _request_key(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    client_ip = forwarded.split(",", 1)[0].strip() if forwarded else ""
+    return client_ip or (request.client.host if request.client else "unknown")
+
+
+async def _rate_limit(request: Request, scope: str) -> None:
+    allowed, retry_after = await allow_request(f"{scope}:{_request_key(request)}")
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again shortly.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
+def _require_ops_access(request: Request) -> None:
+    if not settings.is_production:
+        return
+    supplied = request.headers.get("X-Ops-Token", "")
+    if not settings.ops_token or not hmac.compare_digest(supplied, settings.ops_token):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+def _public_source_error(error: str | None) -> str | None:
+    if not error:
+        return None
+    normalized = error.lower()
+    if any(token in normalized for token in ("http ", "api", "provider", "timeout", "network", "empty", "request failed")):
+        return "Live marketplace access is temporarily unavailable."
+    return "This marketplace is temporarily unavailable."
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -192,6 +233,7 @@ async def search(
     The recommendation is calculated locally from the returned product data
     using transparent price, rating, and review weights.
     """
+    await _rate_limit(request, "search")
     query = q.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be blank.")
@@ -205,6 +247,9 @@ async def search(
     )
 
     result = await run_search(query, provider_credentials=provider_credentials)
+    for source_result in result.results:
+        source_result.error = _public_source_error(source_result.error)
+    result.ai_error = _public_source_error(result.ai_error)
     result.request_id = getattr(request.state, "request_id", None)
     return result
 
@@ -216,23 +261,26 @@ async def search_compat(request: Request, q: str = Query(..., min_length=2, max_
 
 
 @app.get("/api/v1/health", response_model=list[HealthCheckResult], tags=["ops"])
-async def health():
+async def health(request: Request):
     """
     Runs a live canary search per source. **Expensive** — do not use as a
     load-balancer health check. Use `/api/ping` for that instead.
     Wire this to a scheduled job (e.g. every 6 hours) and alert on failures.
     """
+    _require_ops_access(request)
     return await run_health_check()
 
 
 @app.get("/api/health", response_model=list[HealthCheckResult], include_in_schema=False)
-async def health_compat():
+async def health_compat(request: Request):
+    _require_ops_access(request)
     return await run_health_check()
 
 
 @app.get("/api/v1/cache/stats", tags=["ops"])
-async def cache_statistics():
-    """Cache hit/miss rates and disk usage for monitoring and TTL tuning."""
+async def cache_statistics(request: Request):
+    """Cache hit rates and disk usage for monitoring and TTL tuning."""
+    _require_ops_access(request)
     return cache_stats()
 
 
@@ -246,11 +294,12 @@ async def ping():
 
 
 @app.delete("/api/v1/cache", tags=["ops"])
-async def cache_clear():
+async def cache_clear(request: Request):
     """
     Clears all cached scrape results. Useful after scraper selectors are updated
     to force fresh fetches on the next search. Requires ops access.
     """
+    _require_ops_access(request)
     from cache import clear_all
     count = clear_all()
     logger.info("Cache cleared: %d entries removed", count)
@@ -260,6 +309,7 @@ async def cache_clear():
 @app.get("/api/v1/validate-keys", tags=["ops"])
 async def validate_keys(request: Request):
     """Validate provider credentials without exposing keys or scraping data."""
+    await _rate_limit(request, "validate-keys")
     scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or settings.scraperapi_key
     scrapingant_key = request.headers.get("X-ScrapingAnt-Key", "").strip() or settings.scrapingant_api_key
     brightdata_key = request.headers.get("X-BrightData-Key", "").strip() or settings.brightdata_api_key
