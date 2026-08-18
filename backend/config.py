@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # ── Cache ──────────────────────────────────────────────────────────────
     cache_dir: str = ".cache"
+    redis_url: str = ""
     cache_ttl_seconds: int = 1800
     stale_serve_ttl_seconds: int = 21600
     cache_max_size_bytes: int = 500_000_000

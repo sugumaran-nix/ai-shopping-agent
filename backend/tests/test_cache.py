@@ -62,3 +62,40 @@ class TestCache:
         entry = cache_mod.get("amazon", "shoes")
         assert entry is not None
         assert entry.age_seconds >= 0
+
+
+class TestRedisAdapter:
+    def test_round_trips_values(self, monkeypatch):
+        import pickle
+        import redis
+        import cache
+
+        class FakeRedis:
+            values = {}
+
+            def ping(self):
+                return True
+
+            def get(self, key):
+                return self.values.get(key)
+
+            def set(self, key, value):
+                self.values[key] = value
+
+            def delete(self, *keys):
+                for key in keys:
+                    self.values.pop(key, None)
+
+            def scan_iter(self, match=None, count=None):
+                prefix = match.removesuffix("*") if match else ""
+                return iter([key for key in self.values if key.startswith(prefix)])
+
+        fake = FakeRedis()
+        monkeypatch.setattr(redis.Redis, "from_url", lambda *args, **kwargs: fake)
+        adapter = cache._RedisCache("redis://example.test/0")
+        adapter.set("key", ("value", 123.0))
+
+        assert adapter.get("key") == ("value", 123.0)
+        assert len(adapter) == 1
+        adapter.delete("key")
+        assert adapter.get("key") is None

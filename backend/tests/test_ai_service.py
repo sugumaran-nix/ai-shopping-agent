@@ -1,5 +1,7 @@
 import pytest
 
+import asyncio
+
 from models import Product, ScrapeStatus, Source, SourceResult
 from services import ai_service
 
@@ -188,3 +190,29 @@ async def test_uses_openrouter_after_gemini_busy(monkeypatch, product_result):
 
     assert recommendation == "Use the lower-priced option."
     assert error is None
+
+
+@pytest.mark.asyncio
+async def test_singleflight_deduplicates_concurrent_provider_calls(monkeypatch, product_result):
+    class CountingClient(FakeClient):
+        calls = 0
+
+        async def post(self, *args, **kwargs):
+            self.calls += 1
+            await asyncio.sleep(0.01)
+            return FakeResponse({
+                "candidates": [{"content": {"parts": [{"text": "Shared recommendation."}]}}]
+            })
+
+    client = CountingClient(None)
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ai_service, "cache_store", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: client)
+
+    responses = await asyncio.gather(*[
+        ai_service.generate_recommendation("wireless mouse", [product_result], user_gemini_key="test-key")
+        for _ in range(25)
+    ])
+
+    assert client.calls == 1
+    assert {recommendation for recommendation, _ in responses} == {"Shared recommendation."}

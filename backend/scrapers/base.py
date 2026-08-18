@@ -30,6 +30,11 @@ class BaseScraper(ABC):
 
     async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
         cached = cache_module.get(self.source.value, query)
+        if cached and cached.is_fresh:
+            products = self._products_from_cache(cached)
+            if products:
+                logger.debug("%s: fresh cache hit for %s", self.source.value, query[:40])
+                return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
 
         try:
             url = self.build_search_url(query)
@@ -82,16 +87,21 @@ class BaseScraper(ABC):
                 cached, f"Unexpected error: {type(exc).__name__}"
             )
 
+    @staticmethod
+    def _products_from_cache(cached: cache_module.CacheEntry) -> list[Product]:
+        products: list[Product] = []
+        for item in cached.data:
+            try:
+                products.append(Product(**item))
+            except Exception:  # noqa: BLE001
+                continue
+        return products
+
     def _from_cache_or_unavailable(
         self, cached: cache_module.CacheEntry | None, error: str
     ) -> SourceResult:
         if cached:
-            products = []
-            for p in cached.data:
-                try:
-                    products.append(Product(**p))
-                except Exception:  # noqa: BLE001
-                    pass
+            products = self._products_from_cache(cached)
             return SourceResult(
                 source=self.source,
                 status=ScrapeStatus.STALE,

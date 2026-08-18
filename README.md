@@ -152,10 +152,12 @@ All variables are documented in `backend/.env.example`. Key ones:
 | `EBAY_CLIENT_SECRET` | — | — | eBay app client secret |
 | `ALLOWED_ORIGINS` | — | `http://localhost:3000` | Comma-separated CORS origins |
 | `CACHE_TTL_SECONDS` | — | `1800` | Fresh cache window (30 min) |
+| `CACHE_DIR` | — | `.cache` | Persistent disk-cache directory when Redis is not configured |
 | `STALE_SERVE_TTL_SECONDS` | — | `21600` | Stale fallback window (6 hr) |
 | `GEMINI_MODEL` | — | `gemini-flash-latest` | Gemini model alias; transient failures retry and fall back to a live-data summary |
 | `OPENROUTER_API_KEY` | — | — | Optional OpenRouter key for free-model fallback |
 | `OPENROUTER_MODEL` | — | `openrouter/free` | OpenRouter free-model router alias |
+| `REDIS_URL` | — | — | Optional Redis URL for cache persistence across instances and restarts; diskcache is used when omitted |
 | `ENVIRONMENT` | — | `development` | `development` or `production` |
 | `LOG_LEVEL` | — | `INFO` | Python log level |
 

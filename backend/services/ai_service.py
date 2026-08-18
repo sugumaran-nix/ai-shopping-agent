@@ -15,6 +15,8 @@ from models import ScrapeStatus, SourceResult
 
 logger = logging.getLogger("ai")
 settings = get_settings()
+_singleflight_guard = asyncio.Lock()
+_singleflight: dict[str, asyncio.Future] = {}
 
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -180,6 +182,46 @@ async def _call_provider(provider: str, key: str, prompt: str) -> tuple[str | No
         return None, f"{provider.title()} is temporarily unavailable"
 
 
+async def _cached_provider_call(
+    provider: str,
+    key: str,
+    cache_query: str,
+    prompt: str,
+) -> tuple[str | None, str | None]:
+    """Share one in-flight provider call for each result/provider fingerprint."""
+    async with _singleflight_guard:
+        future = _singleflight.get(cache_query)
+        leader = future is None
+        if leader:
+            future = asyncio.get_running_loop().create_future()
+            _singleflight[cache_query] = future
+
+    if not leader:
+        return await future
+
+    try:
+        cached = cache_get("ai-recommendation", cache_query)
+        if cached is not None and cached.data:
+            result = (str(cached.data), None)
+        else:
+            result = await _call_provider(provider, key, prompt)
+            if result[0]:
+                try:
+                    cache_store("ai-recommendation", cache_query, result[0])
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("AI cache write skipped: %s", type(exc).__name__)
+        future.set_result(result)
+        return result
+    except BaseException as exc:
+        if not future.done():
+            future.set_exception(exc)
+        raise
+    finally:
+        async with _singleflight_guard:
+            if _singleflight.get(cache_query) is future:
+                _singleflight.pop(cache_query, None)
+
+
 async def generate_recommendation(
     query: str,
     results: list[SourceResult],
@@ -202,20 +244,9 @@ async def generate_recommendation(
     last_error = "AI providers unavailable"
     for provider, key in providers:
         cache_query = _result_cache_query(query, results, provider)
-        try:
-            cached = cache_get("ai-recommendation", cache_query)
-            if cached is not None and cached.data:
-                return str(cached.data), None
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("AI cache read skipped: %s", type(exc).__name__)
-
         prompt = _PROMPT_TEMPLATE.format(query=query, product_block=_format_products(results))
-        text, provider_error = await _call_provider(provider, key, prompt)
+        text, provider_error = await _cached_provider_call(provider, key, cache_query, prompt)
         if text:
-            try:
-                cache_store("ai-recommendation", cache_query, text)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("AI cache write skipped: %s", type(exc).__name__)
             return text, None
         last_error = provider_error or last_error
         if len(providers) > 1:

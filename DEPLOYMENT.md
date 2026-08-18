@@ -116,6 +116,7 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 | `ENVIRONMENT` | — | `development` | Set to `production` on Render |
 | `LOG_LEVEL` | — | `INFO` | `DEBUG` for more detail, `WARNING` for quieter logs |
 | `CACHE_TTL_SECONDS` | — | `1800` | How long a fresh scrape stays fresh (30 min) |
+| `CACHE_DIR` | — | `.cache` | Disk cache directory used when Redis is not configured |
 | `STALE_SERVE_TTL_SECONDS` | — | `21600` | How long to serve stale as fallback (6 hr) |
 | `CACHE_MAX_SIZE_BYTES` | — | `524288000` | 500 MB disk cap |
 | `REQUEST_TIMEOUT_SECONDS` | — | `15` | ScraperAPI per-request timeout |
@@ -124,6 +125,7 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 | `GEMINI_MODEL` | — | `gemini-flash-latest` | Transient failures retry; the app falls back to a live-data summary |
 | `OPENROUTER_API_KEY` | — | — | Optional free-model fallback key |
 | `OPENROUTER_MODEL` | — | `openrouter/free` | OpenRouter free-model router alias |
+| `REDIS_URL` | — | — | Optional Redis URL; use this when instances do not share a persistent disk |
 | `AI_MAX_PRODUCTS_PER_SOURCE` | — | `10` | Products sent to AI per source |
 | `AI_REQUEST_TIMEOUT_SECONDS` | — | `30` | Gemini request timeout |
 
@@ -142,6 +144,7 @@ Run through this after every production deploy:
 - [ ] Frontend loads at your Vercel URL
 - [ ] Frontend CORS error does **not** appear in browser console
 - [ ] `GET /api/v1/cache/stats` shows `entry_count` > 0 after a few searches
+- [ ] In multi-instance deployments, `REDIS_URL` is configured and `/api/v1/cache/stats` reports `backend: redis`
 
 ---
 

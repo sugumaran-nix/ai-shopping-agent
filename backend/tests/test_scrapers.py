@@ -180,3 +180,45 @@ class TestMyntraParser:
         assert len(products) == 1
         assert products[0].price == 2499
         assert products[0].title == "Brand Shoes"
+
+
+@pytest.mark.asyncio
+async def test_fresh_cache_hit_skips_upstream_request(monkeypatch):
+    from cache import CacheEntry
+    from models import Product, ScrapeStatus, Source
+    from scrapers.base import BaseScraper
+
+    class DummyScraper(BaseScraper):
+        source = Source.AMAZON
+
+        def build_search_url(self, query: str) -> str:
+            return "https://example.test/search"
+
+        def parse(self, html: str) -> list[dict]:
+            raise AssertionError("parser should not run on a fresh cache hit")
+
+    cached_product = Product(
+        source=Source.AMAZON,
+        title="Cached product",
+        price=499,
+        currency="INR",
+        url="https://example.test/cached",
+    )
+    monkeypatch.setattr(
+        "scrapers.base.cache_module.get",
+        lambda *args, **kwargs: CacheEntry(
+            data=[cached_product.model_dump(mode="json")],
+            stored_at=0,
+            is_fresh=True,
+        ),
+    )
+
+    async def fail_fetch(*args, **kwargs):
+        raise AssertionError("upstream fetch should not run on a fresh cache hit")
+
+    monkeypatch.setattr("scrapers.base.fetch_html", fail_fetch)
+    result = await DummyScraper().search("cached product", scraperapi_key="unused")
+
+    assert result.status == ScrapeStatus.FRESH
+    assert len(result.products) == 1
+    assert result.products[0].title == "Cached product"

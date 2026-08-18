@@ -39,6 +39,11 @@ class MyntraScraper:
     async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
         import cache as cache_module
         cached = cache_module.get(self.source.value, query)
+        if cached and cached.is_fresh:
+            products = self._products_from_cache(cached)
+            if products:
+                logger.debug("Myntra: fresh cache hit for %s", query[:40])
+                return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
 
         try:
             products = await self._fetch(query, scraperapi_key)
@@ -54,14 +59,19 @@ class MyntraScraper:
         except Exception as exc:  # noqa: BLE001
             logger.error("Myntra failed: %s", exc)
             if cached:
-                prods = []
-                for p in cached.data:
-                    try:
-                        prods.append(Product(**p))
-                    except Exception:  # noqa: BLE001
-                        pass
+                prods = self._products_from_cache(cached)
                 return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
             return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
+
+    @staticmethod
+    def _products_from_cache(cached: cache_module.CacheEntry) -> list[Product]:
+        products: list[Product] = []
+        for item in cached.data:
+            try:
+                products.append(Product(**item))
+            except Exception:  # noqa: BLE001
+                continue
+        return products
 
     async def _fetch(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
         """
