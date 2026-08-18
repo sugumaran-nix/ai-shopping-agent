@@ -363,9 +363,16 @@ async def validate_keys(request: Request):
             return False, "Could not verify this key"
 
     import asyncio
-    (scraperapi_ok, scraperapi_error), (scrapingant_ok, scrapingant_error), (brightdata_ok, brightdata_error) = await asyncio.gather(
-        verify_scraperapi(), verify_scrapingant(), verify_brightdata()
-    )
+    try:
+        (scraperapi_ok, scraperapi_error), (scrapingant_ok, scrapingant_error), (brightdata_ok, brightdata_error) = await asyncio.wait_for(
+            asyncio.gather(verify_scraperapi(), verify_scrapingant(), verify_brightdata()),
+            timeout=12,
+        )
+    except asyncio.TimeoutError:
+        scraperapi_ok, scraperapi_error = False, "Key verification timed out"
+        scrapingant_ok, scrapingant_error = False, "Key verification timed out"
+        brightdata_ok, brightdata_error = False, "Key verification timed out"
+
     available = scraperapi_ok or scrapingant_ok or brightdata_ok
     return {
         "scraping": {
