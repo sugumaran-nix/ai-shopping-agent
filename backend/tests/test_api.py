@@ -132,18 +132,25 @@ class TestHealth:
         assert r.status_code == 200
 
 
-class TestScraperKeyForwarding:
+class TestProviderKeyForwarding:
     @patch("main.run_search", new_callable=AsyncMock)
-    def test_scraperapi_header_forwarded(self, mock_run):
+    def test_provider_headers_forwarded(self, mock_run):
         mock_run.return_value = SearchResponse(query="mouse", results=[])
 
         response = client.get(
             "/api/v1/search?q=mouse",
-            headers={"X-ScraperAPI-Key": "test-scraper-key"},
+            headers={
+                "X-ScrapingAnt-Key": "test-scrapingant-key",
+                "X-BrightData-Key": "test-brightdata-key",
+                "X-BrightData-Zone": "web_unlocker1",
+            },
         )
 
         assert response.status_code == 200
-        assert mock_run.await_args.kwargs["user_scraperapi_key"] == "test-scraper-key"
+        credentials = mock_run.await_args.kwargs["provider_credentials"]
+        assert credentials.scrapingant_key == "test-scrapingant-key"
+        assert credentials.brightdata_key == "test-brightdata-key"
+        assert credentials.brightdata_zone == "web_unlocker1"
 
     def test_provider_http_logs_are_quiet(self):
         import logging

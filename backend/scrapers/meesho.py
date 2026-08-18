@@ -1,4 +1,4 @@
-"""Meesho scraper with direct HTTP, browser, then ScraperAPI fallbacks."""
+"""Meesho scraper with direct HTTP, browser, then provider fallbacks."""
 from __future__ import annotations
 
 import json
@@ -8,16 +8,14 @@ from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 
 import cache as cache_module
-from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
 from scrapers.base import BaseScraper
 from services.browser_manager import render_page_html
 from utils.headers import clean_price, extract_image_url, make_absolute_url, normalize_image_url
-from utils.http_client import fetch_html
+from utils.http_client import ProviderCredentials, fetch_html
 
 _BASE = "https://www.meesho.com"
 logger = logging.getLogger("scraper.meesho")
-settings = get_settings()
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -35,7 +33,7 @@ class MeeshoScraper(BaseScraper):
     def build_search_url(self, query: str) -> str:
         return f"{_BASE}/search?q={quote_plus(query)}&searchType=manual"
 
-    async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
+    async def search(self, query: str, provider_credentials: ProviderCredentials | None = None) -> SourceResult:
         cached = cache_module.get(self.source.value, query)
         if cached and cached.is_fresh:
             products = self._products_from_cache(cached)
@@ -44,7 +42,7 @@ class MeeshoScraper(BaseScraper):
                 return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
 
         try:
-            products = await self._fetch(query, scraperapi_key)
+            products = await self._fetch(query, provider_credentials)
             if not products:
                 raise ValueError("0 valid products returned from Meesho")
             cache_module.store(self.source.value, query, [product.model_dump(mode="json") for product in products])
@@ -57,8 +55,8 @@ class MeeshoScraper(BaseScraper):
                     return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=products, error=str(exc))
             return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
 
-    async def _fetch(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
-        # Plan A: direct internal JSON endpoint(s), without ScraperAPI.
+    async def _fetch(self, query: str, provider_credentials: ProviderCredentials | None = None) -> list[Product]:
+        # Plan A: direct internal JSON endpoint(s), without paid-provider credits.
         try:
             products = self._validated(await self._try_internal_api(query))
             if products:
@@ -81,18 +79,17 @@ class MeeshoScraper(BaseScraper):
         except Exception as exc:  # noqa: BLE001
             logger.debug("Meesho Playwright fallback failed: %s", exc)
 
-        # Plan C: preserve the existing ScraperAPI path exactly as the final fallback.
-        if scraperapi_key or settings.scraperapi_key:
-            html = await fetch_html(
-                self.build_search_url(query),
-                api_key=scraperapi_key,
-                render_js=True,
-                country_code=self.country_code,
-            )
-            products = self._validated(self.parse(html))
-            if products:
-                logger.info("Meesho: %d products from ScraperAPI", len(products))
-                return products
+        # Plan C: bounded ScrapingAnt → Bright Data fallback.
+        html = await fetch_html(
+            self.build_search_url(query),
+            credentials=provider_credentials,
+            render_js=True,
+            country_code=self.country_code,
+        )
+        products = self._validated(self.parse(html))
+        if products:
+            logger.info("Meesho: %d products from provider fallback", len(products))
+            return products
         return []
 
     async def _try_internal_api(self, query: str) -> list[dict]:

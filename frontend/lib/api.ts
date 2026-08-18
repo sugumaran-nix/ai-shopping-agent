@@ -133,13 +133,28 @@ export const SOURCE_META: Record<Source, {
 
 // ── API key-aware fetch ───────────────────────────────────────────────────────
 
-export interface KeyStatus {
-  scraping: { available: boolean; source: string; error: string | null }
+export interface ProviderKeys {
+  scrapingant: string
+  brightdata: string
+  brightdataZone: string
 }
 
-export async function validateKeys(scraperKey?: string): Promise<KeyStatus> {
+export interface KeyStatus {
+  scraping: { available: boolean; source: string; error: string | null }
+  scrapingant: { available: boolean; error: string | null }
+  brightdata: { available: boolean; error: string | null }
+}
+
+function providerHeaders(keys: ProviderKeys): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
+  if (keys.scrapingant) headers['X-ScrapingAnt-Key'] = keys.scrapingant
+  if (keys.brightdata) headers['X-BrightData-Key'] = keys.brightdata
+  if (keys.brightdataZone) headers['X-BrightData-Zone'] = keys.brightdataZone
+  return headers
+}
+
+export async function validateKeys(keys: ProviderKeys): Promise<KeyStatus> {
+  const headers = providerHeaders(keys)
 
   try {
     const res = await fetch(`${BASE_URL}/api/v1/validate-keys`, {
@@ -156,12 +171,11 @@ export async function validateKeys(scraperKey?: string): Promise<KeyStatus> {
 
 export async function searchWithKeys(
   query: string,
-  scraperKey?: string,
+  keys: ProviderKeys,
   signal?: AbortSignal,
 ): Promise<SearchResponse> {
   const url = `${BASE_URL}/api/v1/search?q=${encodeURIComponent(query.trim())}`
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
+  const headers = providerHeaders(keys)
 
   let res: Response
   try {
@@ -194,7 +208,7 @@ export function friendlyUserError(error?: string | null, kind: 'connection' | 's
   }
   if (!error) return 'This service is temporarily unavailable. Try again later.'
   const normalized = error.toLowerCase()
-  if (/scraperapi|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) return 'Live marketplace access was rejected. Try again later.'
+  if (/scrapingant|bright.?data|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) return 'Live marketplace access was rejected. Try again later.'
   if (/timeout|timed out/.test(normalized)) return 'The request took too long to respond. Try again in a moment.'
   if (/network|connect|server/.test(normalized)) return 'The service could not be reached right now. Try again later.'
   return 'This service did not return a usable response. Try again later.'
@@ -205,7 +219,7 @@ export function friendlySourceError(status: ScrapeStatus, error?: string | null)
   if (!error) return status === 'unavailable' ? 'This source is temporarily unavailable. Try another source or refresh later.' : 'Live prices are not available right now.'
 
   const normalized = error.toLowerCase()
-  if (/403|forbidden|scraperapi|quota|api key|unauthori/.test(normalized)) {
+  if (/403|forbidden|scrapingant|bright.?data|quota|api key|unauthori/.test(normalized)) {
     return 'Live price access was rejected. Try refreshing later or check the scraping connection.'
   }
   if (/timeout|timed out/.test(normalized)) {

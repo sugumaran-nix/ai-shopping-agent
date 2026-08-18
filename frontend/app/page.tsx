@@ -10,7 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ApiKeySetup } from '@/components/ApiKeySetup'
 import {
   validateKeys, searchWithKeys, isRequestAborted, ApiError,
-  type Product, type SearchResponse, STATUS_ORDER,
+  type Product, type SearchResponse, STATUS_ORDER, type ProviderKeys,
 } from '@/lib/api'
 import { getStoredKeys, hasKeys, saveKeys } from '@/lib/keys'
 
@@ -50,7 +50,7 @@ function friendlySearchError(error: ApiError | Error): string {
   if (!(error instanceof ApiError)) return 'Something interrupted the comparison. Please try again.'
   if (error.detail.kind === 'network') return 'Cannot reach the comparison service right now. Check your connection and try again.'
   if (error.detail.kind === 'timeout') return 'The comparison is taking longer than expected. Please try again in a moment.'
-  if (error.detail.kind === 'server' && (error.detail.status === 403 || /scraperapi|forbidden|quota|api key|unauthori/i.test(error.message))) {
+  if (error.detail.kind === 'server' && (error.detail.status === 403 || /scrapingant|bright.?data|forbidden|quota|api key|unauthori/i.test(error.message))) {
     return 'The live price connection was rejected. Check the scraping connection or try again later.'
   }
   return 'The comparison service is temporarily unavailable. Please try again.'
@@ -150,20 +150,20 @@ export default function HomePage() {
 
   useEffect(() => {
     const storedKeys = getStoredKeys()
-    if (hasKeys() && storedKeys.scraperapi) {
+    if (hasKeys()) {
       setAppState({ mode: 'user-keys-set' })
       return
     }
-    validateKeys(storedKeys.scraperapi || undefined)
+    validateKeys(storedKeys)
       .then(status => {
-        if (status.scraping.available) setAppState(storedKeys.scraperapi ? { mode: 'user-keys-set' } : { mode: 'ready' })
-        else if (storedKeys.scraperapi) setAppState({ mode: 'needs-keys', error: 'Your saved ScraperAPI key is no longer valid. Please enter a new one.' })
+        if (status.scraping.available) setAppState({ mode: 'ready' })
+        else if (hasKeys()) setAppState({ mode: 'needs-keys', error: 'Your saved provider keys could not be verified. Please update them.' })
         else setAppState({ mode: 'needs-keys' })
       })
       .catch(() => setAppState({ mode: 'needs-keys', error: 'Cannot reach the server. Check your connection.' }))
   }, [])
 
-  const getKeys = () => ({ scraperKey: getStoredKeys().scraperapi })
+  const getKeys = (): ProviderKeys => getStoredKeys()
 
   const handleSearch = useCallback(async (q: string) => {
     const normalizedQuery = q.trim()
@@ -176,8 +176,8 @@ export default function HomePage() {
     setPhase({ name: 'loading' })
     setShowKeySetup(false)
     try {
-      const { scraperKey } = getKeys()
-      const data = await searchWithKeys(normalizedQuery, scraperKey || undefined, controller.signal)
+      const keys = getKeys()
+      const data = await searchWithKeys(normalizedQuery, keys, controller.signal)
       if (!controller.signal.aborted) setPhase({ name: 'done', data })
     } catch (err) {
       if (isRequestAborted(err)) return
@@ -191,8 +191,8 @@ export default function HomePage() {
 
   useEffect(() => () => searchAbortRef.current?.abort(), [])
 
-  const handleKeysReady = useCallback((scraperKey: string) => {
-    saveKeys(scraperKey)
+  const handleKeysReady = useCallback((keys: ProviderKeys) => {
+    saveKeys(keys)
     setAppState({ mode: 'user-keys-set' })
     setShowKeySetup(false)
     if (query.trim().length >= 2) handleSearch(query)
@@ -203,11 +203,11 @@ export default function HomePage() {
   const bestProduct: Product | undefined = useMemo(() => phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined, [phase, topPickCandidates])
   if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Preparing your search</p></div></div>
 
-  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5 pb-8"><section className="mx-auto max-w-5xl text-center"><div className="mb-2 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-[clamp(3rem,6vw,6rem)] leading-[0.84] text-[#171a16]">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare live marketplace listings and get grounded buying guidance.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} initialError={appState.error} /></div>
+  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5 pb-8"><section className="mx-auto max-w-5xl text-center"><div className="mb-2 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-[clamp(3rem,6vw,6rem)] leading-[0.84] text-[#171a16]">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare live marketplace listings and get grounded buying guidance.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsProvider={true} initialError={appState.error} /></div>
 
   return (
     <ErrorBoundary>
-      {showKeySetup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171a16]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-lg"><button onClick={() => setShowKeySetup(false)} className="focus-ring absolute -right-2 -top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#c9f36b] text-[#171a16] shadow-xl transition hover:rotate-90" aria-label="Close"><X className="h-4 w-4" /></button><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} /></div></div>}
+      {showKeySetup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171a16]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-lg"><button onClick={() => setShowKeySetup(false)} className="focus-ring absolute -right-2 -top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#c9f36b] text-[#171a16] shadow-xl transition hover:rotate-90" aria-label="Close"><X className="h-4 w-4" /></button><ApiKeySetup onKeysReady={handleKeysReady} needsProvider={true} /></div></div>}
 
       <div className="space-y-10 sm:space-y-14">
         {phase.name === 'idle' && <>

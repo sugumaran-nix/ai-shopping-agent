@@ -2,8 +2,7 @@
 Amazon.in search-results scraper.
 
 Uses multiple selector fallbacks since Amazon A/B tests layouts constantly.
-If this returns 0 results, fetch the raw HTML via ScraperAPI and inspect
-what selectors are present in the current layout.
+If this returns 0 results, inspect provider-returned HTML and current selectors.
 """
 from __future__ import annotations
 

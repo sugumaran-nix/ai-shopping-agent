@@ -24,7 +24,7 @@ async def test_meesho_prefers_direct_api(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_meesho_falls_back_browser_then_scraperapi(monkeypatch):
+async def test_meesho_falls_back_browser_then_provider(monkeypatch):
     from scrapers.meesho import MeeshoScraper
 
     expected = {"title": "Poco C51 Phone Case", "price": 199, "currency": "INR", "url": "https://meesho.test/item"}
@@ -45,7 +45,7 @@ async def test_myntra_prefers_direct_api(monkeypatch):
     expected = product(Source.MYNTRA)
     monkeypatch.setattr(MyntraScraper, "_try_internal_api", lambda self, query: _async_value([expected]))
     monkeypatch.setattr("scrapers.myntra.render_page_html", _unexpected_call)
-    monkeypatch.setattr(MyntraScraper, "_try_scraperapi_premium", _unexpected_call)
+    monkeypatch.setattr(MyntraScraper, "_try_provider_fallback", _unexpected_call)
 
     result = await MyntraScraper()._fetch("poco c51 phone case", "key")
 
@@ -53,14 +53,14 @@ async def test_myntra_prefers_direct_api(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_myntra_uses_browser_before_scraperapi(monkeypatch):
+async def test_myntra_uses_browser_before_provider(monkeypatch):
     from scrapers.myntra import MyntraScraper
 
     expected = product(Source.MYNTRA)
     monkeypatch.setattr(MyntraScraper, "_try_internal_api", lambda self, query: _async_value([]))
     monkeypatch.setattr("scrapers.myntra.render_page_html", lambda *args, **kwargs: _async_value("browser"))
     monkeypatch.setattr(MyntraScraper, "_parse_html", lambda self, html, query=None: [expected])
-    monkeypatch.setattr(MyntraScraper, "_try_scraperapi_premium", _unexpected_call)
+    monkeypatch.setattr(MyntraScraper, "_try_provider_fallback", _unexpected_call)
 
     result = await MyntraScraper()._fetch("poco c51 phone case", "key")
 
@@ -68,7 +68,7 @@ async def test_myntra_uses_browser_before_scraperapi(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_jiomart_uses_browser_before_scraperapi(monkeypatch):
+async def test_jiomart_uses_browser_before_provider(monkeypatch):
     from scrapers import jiomart
     from scrapers.jiomart import JiomartScraper
 

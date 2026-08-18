@@ -11,29 +11,27 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # ── Required ───────────────────────────────────────────────────────────
-    scraperapi_key: str = ""
+    # Optional server-side provider credentials. Users may override these per request.
+    scrapingant_api_key: str = ""
+    brightdata_api_key: str = ""
+    brightdata_zone: str = "web_unlocker1"
 
-    # ── Optional ───────────────────────────────────────────────────────────
-
-    # ── CORS ───────────────────────────────────────────────────────────────
+    # CORS
     allowed_origins: str = "http://localhost:3000"
 
-    # ── Cache ──────────────────────────────────────────────────────────────
+    # Cache
     cache_dir: str = ".cache"
     redis_url: str = ""
     cache_ttl_seconds: int = 1800
     stale_serve_ttl_seconds: int = 21600
     cache_max_size_bytes: int = 500_000_000
 
-    # ── Scraping ───────────────────────────────────────────────────────────
-    # Note: actual timeouts are set per-request in http_client.py
-    # (20s for plain HTML, 60s for JS rendering)
+    # Scraping
     request_timeout_seconds: int = 20
-    max_retries: int = 1          # reduced — retrying slow JS scrapers wastes time
+    max_retries: int = 1
     concurrent_scrape_limit: int = 4
 
-    # ── Observability ──────────────────────────────────────────────────────
+    # Observability
     log_level: str = "INFO"
     environment: str = "development"
 
@@ -46,13 +44,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def warn_on_startup(self) -> "Settings":
-        if not self.scraperapi_key:
+        if not self.scrapingant_api_key and not self.brightdata_api_key:
             logging.getLogger("config").warning(
-                "Missing env var: SCRAPERAPI_KEY — live marketplace results will be unavailable."
+                "No scraping provider key configured; live marketplace results may be unavailable."
             )
         if self.environment == "production" and self.allowed_origins == "http://localhost:3000":
             logging.getLogger("config").error(
-                "ALLOWED_ORIGINS is still localhost in production — CORS will block all browser requests."
+                "ALLOWED_ORIGINS is still localhost in production — CORS will block browser requests."
             )
         else:
             logging.getLogger("config").info("CORS allowed origins: %s", self.allowed_origins)

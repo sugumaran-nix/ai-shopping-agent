@@ -1,25 +1,42 @@
 /**
- * User API key management.
- * The ScraperAPI key is stored in sessionStorage and cleared when the tab closes.
- * It is sent only to our own backend as a request header.
+ * User provider credentials. Values live only in sessionStorage and are sent
+ * only to this app's backend when the user searches.
  */
-
-const SCRAPER_KEY = 'user_scraperapi_key'
-
-export function getStoredKeys(): { scraperapi: string } {
-  if (typeof window === 'undefined') return { scraperapi: '' }
-  return { scraperapi: sessionStorage.getItem(SCRAPER_KEY) || '' }
+export interface ProviderKeys {
+  scrapingant: string
+  brightdata: string
+  brightdataZone: string
 }
 
-export function saveKeys(scraperapi: string): void {
-  if (scraperapi.trim()) sessionStorage.setItem(SCRAPER_KEY, scraperapi.trim())
-  else sessionStorage.removeItem(SCRAPER_KEY)
+const KEYS = {
+  scrapingant: 'user_scrapingant_key',
+  brightdata: 'user_brightdata_key',
+  brightdataZone: 'user_brightdata_zone',
+} as const
+
+export function getStoredKeys(): ProviderKeys {
+  if (typeof window === 'undefined') return { scrapingant: '', brightdata: '', brightdataZone: '' }
+  return {
+    scrapingant: sessionStorage.getItem(KEYS.scrapingant) || '',
+    brightdata: sessionStorage.getItem(KEYS.brightdata) || '',
+    brightdataZone: sessionStorage.getItem(KEYS.brightdataZone) || '',
+  }
+}
+
+export function saveKeys(keys: ProviderKeys): void {
+  if (keys.scrapingant.trim()) sessionStorage.setItem(KEYS.scrapingant, keys.scrapingant.trim())
+  else sessionStorage.removeItem(KEYS.scrapingant)
+  if (keys.brightdata.trim()) sessionStorage.setItem(KEYS.brightdata, keys.brightdata.trim())
+  else sessionStorage.removeItem(KEYS.brightdata)
+  if (keys.brightdataZone.trim()) sessionStorage.setItem(KEYS.brightdataZone, keys.brightdataZone.trim())
+  else sessionStorage.removeItem(KEYS.brightdataZone)
 }
 
 export function clearKeys(): void {
-  sessionStorage.removeItem(SCRAPER_KEY)
+  Object.values(KEYS).forEach(key => sessionStorage.removeItem(key))
 }
 
 export function hasKeys(): boolean {
-  return Boolean(getStoredKeys().scraperapi)
+  const keys = getStoredKeys()
+  return Boolean(keys.scrapingant || (keys.brightdata && keys.brightdataZone))
 }

@@ -7,8 +7,12 @@ services:
     healthCheckPath: /api/ping
     envVars:
       # ── REQUIRED — set these in the Render dashboard ──────────────────────
-      - key: SCRAPERAPI_KEY
+      - key: SCRAPINGANT_API_KEY
         sync: false
+      - key: BRIGHTDATA_API_KEY
+        sync: false
+      - key: BRIGHTDATA_ZONE
+        value: web_unlocker1
       # ── CORS — set to your exact Vercel URL ───────────────────────────────
       # Example: https://ai-shopping-agent-abc.vercel.app
       - key: ALLOWED_ORIGINS

@@ -235,7 +235,7 @@ async def test_fresh_cache_hit_skips_upstream_request(monkeypatch):
         raise AssertionError("upstream fetch should not run on a fresh cache hit")
 
     monkeypatch.setattr("scrapers.base.fetch_html", fail_fetch)
-    result = await DummyScraper().search("cached product", scraperapi_key="unused")
+    result = await DummyScraper().search("cached product")
 
     assert result.status == ScrapeStatus.FRESH
     assert len(result.products) == 1

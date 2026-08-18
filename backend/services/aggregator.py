@@ -13,6 +13,7 @@ from scrapers.meesho import MeeshoScraper
 from scrapers.myntra import MyntraScraper
 from scrapers.jiomart import JiomartScraper
 from services.ai_service import generate_recommendation
+from utils.http_client import ProviderCredentials
 
 logger = logging.getLogger("aggregator")
 settings = get_settings()
@@ -30,12 +31,12 @@ async def _run_one(
     scraper,
     query: str,
     sem: asyncio.Semaphore,
-    scraperapi_key: str | None = None,
+    provider_credentials: ProviderCredentials | None = None,
 ) -> SourceResult:
     async with sem:
         t0 = time.monotonic()
         try:
-            result = await scraper.search(query, scraperapi_key=scraperapi_key)
+            result = await scraper.search(query, provider_credentials=provider_credentials)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Scraper %s raised: %s", scraper.source.value, exc)
             result = SourceResult(
@@ -52,10 +53,10 @@ async def _run_one(
 
 async def run_search(
     query: str,
-    user_scraperapi_key: str | None = None,
+    provider_credentials: ProviderCredentials | None = None,
 ) -> SearchResponse:
     sem = asyncio.Semaphore(settings.concurrent_scrape_limit)
-    tasks = [_run_one(s, query, sem, user_scraperapi_key) for s in _SCRAPERS]
+    tasks = [_run_one(s, query, sem, provider_credentials) for s in _SCRAPERS]
 
     t0 = time.monotonic()
     results = list(await asyncio.gather(*tasks))

@@ -1,11 +1,5 @@
 """
-Myntra search scraper.
-
-Myntra heavily blocks scrapers including ScraperAPI's standard JS rendering.
-Strategy: use ScraperAPI with ultra_premium=true which routes through residential
-proxies — costs more credits but actually gets through Myntra's anti-bot.
-
-If that also fails, we return unavailable rather than wasting time retrying.
+Myntra search scraper with direct API, browser, and bounded provider fallbacks.
 """
 from __future__ import annotations
 
@@ -15,13 +9,12 @@ import re
 
 import httpx
 
-from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
 from services.browser_manager import render_page_html
 from utils.headers import extract_image_url, normalize_image_url
+from utils.http_client import ProviderCredentials, fetch_html
 
 logger = logging.getLogger("scraper.myntra")
-settings = get_settings()
 
 _BASE = "https://www.myntra.com"
 
@@ -38,7 +31,7 @@ _HEADERS = {
 class MyntraScraper:
     source = Source.MYNTRA
 
-    async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
+    async def search(self, query: str, provider_credentials: ProviderCredentials | None = None) -> SourceResult:
         import cache as cache_module
         cached = cache_module.get(self.source.value, query)
         if cached and cached.is_fresh:
@@ -48,7 +41,7 @@ class MyntraScraper:
                 return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
 
         try:
-            products = await self._fetch(query, scraperapi_key)
+            products = await self._fetch(query, provider_credentials)
             if not products:
                 raise ValueError("0 relevant products returned from Myntra")
 
@@ -76,11 +69,11 @@ class MyntraScraper:
                 continue
         return products
 
-    async def _fetch(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
+    async def _fetch(self, query: str, provider_credentials: ProviderCredentials | None = None) -> list[Product]:
         """
         Try multiple Myntra endpoints in order:
         1. Internal search API (fastest, often blocked)
-        2. ScraperAPI with ultra_premium residential proxy
+        2. Shared provider fallback: ScrapingAnt, then Bright Data
         """
         # Try 1: Myntra internal search API directly
         try:
@@ -108,17 +101,15 @@ class MyntraScraper:
         except Exception as exc:  # noqa: BLE001
             logger.debug("Myntra Playwright fallback failed: %s", exc)
 
-        # Try 3: ScraperAPI rendered HTML. The ultra_premium option is plan-dependent
-        # and returns 403 for otherwise valid keys, so keep the request portable.
-        if scraperapi_key or settings.scraperapi_key:
-            try:
-                products = await self._try_scraperapi_premium(query, scraperapi_key)
-                relevant = self._filter_relevant_products(products, query)
-                if relevant:
-                    logger.debug("Myntra: %d relevant products from ScraperAPI premium", len(relevant))
-                    return relevant
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Myntra ScraperAPI premium failed: %s", exc)
+        # Try 3: provider fallback through ScrapingAnt, then Bright Data.
+        try:
+            products = await self._try_provider_fallback(query, provider_credentials)
+            relevant = self._filter_relevant_products(products, query)
+            if relevant:
+                logger.debug("Myntra: %d relevant products from provider fallback", len(relevant))
+                return relevant
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Myntra provider fallback failed: %s", exc)
 
         return []
 
@@ -138,37 +129,31 @@ class MyntraScraper:
 
         return self._parse_api_response(data)
 
-    async def _try_scraperapi_premium(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
-        """Fetch rendered Myntra HTML, preferring the product-slug route that returns embedded results."""
+    async def _try_provider_fallback(self, query: str, provider_credentials: ProviderCredentials | None = None) -> list[Product]:
+        """Fetch rendered Myntra HTML through the shared provider chain."""
         from urllib.parse import quote, quote_plus
 
         slug = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")
         encoded_query = quote_plus(query.strip())
-        target_urls = [
+        target_urls = (
             f"{_BASE}/{quote(slug)}?rawQuery={encoded_query}",
             f"{_BASE}/search?q={encoded_query}",
-        ]
+        )
         last_error: Exception | None = None
-        async with httpx.AsyncClient(timeout=90) as client:
-            for target_url in target_urls:
-                params = {
-                    "api_key": scraperapi_key or settings.scraperapi_key,
-                    "url": target_url,
-                    "render": "true",
-                    "country_code": "in",
-                }
-                try:
-                    resp = await client.get("https://api.scraperapi.com/", params=params)
-                    resp.raise_for_status()
-                    html = resp.text
-                    if not html.strip():
-                        raise ValueError("Empty HTML from ScraperAPI")
-                    products = self._parse_html(html, query=query)
-                    if products:
-                        return products
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-                    logger.debug("Myntra ScraperAPI route failed for %s: %s", target_url, exc)
+        for target_url in target_urls:
+            try:
+                html = await fetch_html(
+                    target_url,
+                    credentials=provider_credentials,
+                    render_js=True,
+                    country_code="in",
+                )
+                products = self._parse_html(html, query=query)
+                if products:
+                    return products
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                logger.debug("Myntra provider route failed for %s: %s", target_url, exc)
 
         if last_error:
             raise last_error
@@ -315,7 +300,7 @@ class MyntraScraper:
                 else:
                     return products
 
-        # Rendered-card fallback for ScraperAPI responses with JS executed.
+        # Rendered-card fallback for provider responses with JS executed.
         cards = soup.select(
             "li.product-base, li[class*='product-base'], li[class*='results-base'], "
             "div[class*='product-base']"

@@ -30,10 +30,10 @@ Replace the line below with a recorded product-search GIF when available.
 - **Per-marketplace filters** — Sort each source by best match, low price, high price, or top rating without losing comparison context.
 - **Transparent weighted recommendations** — Every available product receives a visible score from normalized price (40%), rating (40%), and review count (20%), with the top three returned in a deterministic summary.
 - **No fabricated listings** — Products come from live scrapes or cached real results and are labeled `fresh`, `stale`, or `unavailable`.
-- **Resilient scraping** — ScraperAPI keys can be supplied by the user, scraper failures retry safely, and stale cache data is shown instead of a blank result.
+- **Resilient scraping** — ScrapingAnt and Bright Data keys can be supplied by the user, provider attempts are bounded, and stale cache data is shown instead of a blank result.
 - **Myntra relevance filtering** — Query-aware parsing and identity matching prevent unrelated products from appearing in the results.
 - **Stampede-safe caching** — Fresh-cache short-circuits, single-flight locking, disk-backed persistence, and optional Redis reduce repeated upstream requests.
-- **Session-only API access** — User-provided keys stay in the browser session, are forwarded through request headers, and are cleared when the tab session ends.
+- **Session-only provider access** — User-provided provider credentials stay in the browser session, are forwarded through request headers, and are cleared when the tab session ends.
 - **Editorial responsive UI** — Dark/light mode, local search suggestions, responsive cards, inline marketplace scrolling, smooth loading states, and a compact sticky results search bar.
 - **Resilient product images** — Lazy-loaded and relative image URLs are normalized, placeholders are rejected, and failed remote images receive a clean fallback tile.
 
@@ -47,7 +47,7 @@ Replace the line below with a recorded product-search GIF when available.
 | Frontend language | TypeScript |
 | Styling | Tailwind CSS and custom editorial UI styles |
 | Backend framework | FastAPI |
-| Scraping and HTTP | httpx, ScraperAPI, BeautifulSoup, lxml |
+| Scraping and HTTP | httpx, ScrapingAnt, Bright Data, BeautifulSoup, lxml |
 | Recommendation engine | Deterministic weighted scorer using normalized price, rating, and review count |
 | Validation | Pydantic and pydantic-settings |
 | Cache | Diskcache by default, optional Redis for shared persistence |
@@ -71,12 +71,12 @@ ai-shopping-agent/
 │   │   ├── meesho.py           # Meesho search parser
 │   │   └── myntra.py           # Myntra API/HTML parser and relevance filtering
 │   ├── services/
-│   │   ├── aggregator.py       # Concurrent four-marketplace orchestration
+│   │   ├── aggregator.py       # Concurrent five-marketplace orchestration
 │   │   ├── ai_service.py       # Deterministic weighted top-three scorer
 │   │   └── health_monitor.py   # Per-marketplace canary checks
 │   ├── utils/
 │   │   ├── headers.py          # Request headers, parsing and image URL helpers
-│   │   └── http_client.py      # ScraperAPI request wrapper and retry logic
+│   │   ├── http_client.py      # ScrapingAnt/Bright Data provider wrapper
 │   └── tests/                  # API, cache, model and scraper regression tests
 ├── frontend/
 │   ├── app/
@@ -110,7 +110,7 @@ ai-shopping-agent/
 - Python 3.12+
 - Node.js 20+
 - pnpm
-- A ScraperAPI key for live marketplace scraping
+- A ScrapingAnt key, a Bright Data Web Unlocker key and zone, or both for live marketplace scraping
 
 The application also supports user-provided keys through the setup screen. Those keys are stored only in the current browser session and are never written to the backend cache.
 
@@ -133,7 +133,9 @@ pip install -r requirements.txt
 Create `backend/.env` with server-side defaults if desired. User-entered keys from the frontend can be used instead.
 
 ```env
-SCRAPERAPI_KEY=
+SCRAPINGANT_API_KEY=
+BRIGHTDATA_API_KEY=
+BRIGHTDATA_ZONE=web_unlocker1
 ALLOWED_ORIGINS=http://localhost:3000
 CACHE_TTL_SECONDS=1800
 STALE_SERVE_TTL_SECONDS=21600
@@ -205,7 +207,7 @@ Every result is labeled according to its source state:
 
 ## 🔐 API-Key Privacy Model
 
-The setup screen accepts one ScraperAPI key. The frontend keeps it in `sessionStorage` and forwards it to the backend only through the `X-ScraperAPI-Key` request header. The backend does not store the key in the scrape cache.
+The setup screen accepts ScrapingAnt and Bright Data credentials. The frontend keeps them in `sessionStorage` and forwards them only through request headers. The backend does not store provider credentials in the scrape cache.
 
 Refreshing the page or returning home keeps the keys available in the same browser tab session. Closing the tab clears the session, after which the setup screen appears again. This provides a practical balance between convenience and session-only access.
 
@@ -274,7 +276,7 @@ Use these values in **GitHub → Settings → General → About**:
 |---|---|
 | **Short description** | Compare live prices across Amazon, Flipkart, Meesho, Myntra, and JioMart with transparent weighted buying recommendations. |
 | **Website** | `https://ai-shopping-agent-theta.vercel.app` |
-| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `amazon`, `flipkart`, `meesho`, `myntra`, `jiomart` |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scrapingant`, `bright-data`, `amazon`, `flipkart`, `meesho`, `myntra`, `jiomart` |
 | **Social preview headline** | Shop less. Choose better. |
 | **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
 

@@ -1,4 +1,4 @@
-"""Jiomart scraper with direct HTML, browser, then ScraperAPI fallbacks."""
+"""Jiomart scraper with direct HTML, browser, then bounded provider fallbacks."""
 from __future__ import annotations
 
 import logging
@@ -9,15 +9,13 @@ import httpx
 from bs4 import BeautifulSoup
 
 import cache as cache_module
-from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
 from services.browser_manager import render_page_html
 from utils.headers import clean_price, extract_image_url, make_absolute_url
-from utils.http_client import fetch_html
+from utils.http_client import ProviderCredentials, fetch_html
 
 _BASE = "https://www.jiomart.com"
 logger = logging.getLogger("scraper.jiomart")
-settings = get_settings()
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -33,7 +31,7 @@ class JiomartScraper:
     def build_search_url(self, query: str) -> str:
         return f"{_BASE}/search/{quote(query.strip())}"
 
-    async def search(self, query: str, scraperapi_key: str | None = None) -> SourceResult:
+    async def search(self, query: str, provider_credentials: ProviderCredentials | None = None) -> SourceResult:
         cached = cache_module.get(self.source.value, query)
         if cached and cached.is_fresh:
             products = self._products_from_cache(cached)
@@ -42,7 +40,7 @@ class JiomartScraper:
                 return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
 
         try:
-            products = await self._fetch(query, scraperapi_key)
+            products = await self._fetch(query, provider_credentials)
             if not products:
                 raise ValueError("0 valid products returned from Jiomart")
             cache_module.store(self.source.value, query, [product.model_dump(mode="json") for product in products])
@@ -55,7 +53,7 @@ class JiomartScraper:
                     return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=products, error=str(exc))
             return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
 
-    async def _fetch(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
+    async def _fetch(self, query: str, provider_credentials: ProviderCredentials | None = None) -> list[Product]:
         # Plan A: direct HTTP + BeautifulSoup, as requested for Jiomart.
         try:
             async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=_HEADERS) as client:
@@ -82,13 +80,17 @@ class JiomartScraper:
         except Exception as exc:  # noqa: BLE001
             logger.debug("Jiomart Playwright fallback failed: %s", exc)
 
-        # Plan C: ScraperAPI is the final source-specific fallback.
-        if scraperapi_key or settings.scraperapi_key:
-            html = await fetch_html(self.build_search_url(query), api_key=scraperapi_key, render_js=False, country_code=self.country_code)
-            products = self._validated(self._parse_html(html))
-            if products:
-                logger.info("Jiomart: %d products from ScraperAPI", len(products))
-                return products
+        # Plan C: bounded ScrapingAnt → Bright Data fallback.
+        html = await fetch_html(
+            self.build_search_url(query),
+            credentials=provider_credentials,
+            render_js=False,
+            country_code=self.country_code,
+        )
+        products = self._validated(self._parse_html(html))
+        if products:
+            logger.info("Jiomart: %d products from provider fallback", len(products))
+            return products
         return []
 
     def _parse_html(self, html: str) -> list[dict]:
