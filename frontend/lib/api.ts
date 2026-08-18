@@ -41,6 +41,10 @@ export interface SearchErrorDetail {
   message?: string
 }
 
+export function isRequestAborted(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 export class ApiError extends Error {
   readonly detail: SearchErrorDetail
   constructor(detail: SearchErrorDetail) {
@@ -158,6 +162,7 @@ export async function searchWithKeys(
   scraperKey?: string,
   geminiKey?: string,
   openrouterKey?: string,
+  signal?: AbortSignal,
 ): Promise<SearchResponse> {
   const url = `${BASE_URL}/api/v1/search?q=${encodeURIComponent(query.trim())}`
   const headers: Record<string, string> = { Accept: 'application/json' }
@@ -170,9 +175,10 @@ export async function searchWithKeys(
     res = await fetch(url, {
       headers,
       cache: 'no-store',
-      signal: AbortSignal.timeout(90_000),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90_000)]) : AbortSignal.timeout(90_000),
     })
   } catch (err) {
+    if (isRequestAborted(err)) throw err
     if (err instanceof DOMException && err.name === 'TimeoutError')
       throw new ApiError({ kind: 'timeout' })
     throw new ApiError({ kind: 'network' })

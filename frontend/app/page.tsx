@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { AlertTriangle, Bot, Plus, RefreshCw, Settings, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
+import { AlertTriangle, Bot, RefreshCw, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
 import { SearchBar } from '@/components/SearchBar'
 import { SourceSection } from '@/components/SourceSection'
 import { AIRecommendation } from '@/components/AIRecommendation'
@@ -9,7 +9,7 @@ import { TopPicksCard, rankTopPicks } from '@/components/TopPicksCard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ApiKeySetup } from '@/components/ApiKeySetup'
 import {
-  validateKeys, searchWithKeys, ApiError,
+  validateKeys, searchWithKeys, isRequestAborted, ApiError,
   type Product, type SearchResponse, STATUS_ORDER,
 } from '@/lib/api'
 import { getStoredKeys, hasKeys, saveKeys } from '@/lib/keys'
@@ -78,7 +78,7 @@ function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error;
   )
 }
 
-function ResultsSearchHeader({ data, query, onChange, onSearch, loading, onRefresh, onChangeKeys, onNewSearch }: { data?: SearchResponse; query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onRefresh?: () => void; onChangeKeys: () => void; onNewSearch: () => void }) {
+function ResultsSearchHeader({ query, onChange, onSearch, loading }: { query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean }) {
   const [stuck, setStuck] = useState(false)
   const stickyRef = useRef<HTMLDivElement>(null)
 
@@ -103,9 +103,11 @@ function ResultsSearchHeader({ data, query, onChange, onSearch, loading, onRefre
     }
   }, [])
 
-  const freshCount = data?.results.filter(result => result.status === 'fresh').length ?? 0
-  const visibleCount = data?.results.filter(result => result.products.length > 0).length ?? 0
-  return <><div className="rounded-[20px] border border-[#dfe1d8] bg-white/65 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2.5"><p className="eyebrow text-[#718239]">Live price desk</p>{data && <span className="rounded-full bg-[#eff7d9] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64832b]">{freshCount || visibleCount} live</span>}</div><div className="flex items-center gap-2"><button onClick={onRefresh} disabled={!onRefresh || loading} className="focus-ring rounded-full border border-[#dfe1d8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#4e6d19] disabled:cursor-not-allowed disabled:opacity-40">{loading ? 'Searching…' : 'Refresh'}</button><button onClick={onChangeKeys} className="focus-ring flex h-8 w-8 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button><button onClick={onNewSearch} className="focus-ring flex items-center gap-1.5 rounded-full bg-[#c9f36b] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div></div></div><div ref={stickyRef} className={`results-search-sticky ${stuck ? 'results-search-sticky--stuck' : ''}`}><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div></>
+  return (
+    <div ref={stickyRef} className={`results-search-sticky ${stuck ? 'results-search-sticky--stuck' : ''}`}>
+      <SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact />
+    </div>
+  )
 }
 
 function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
@@ -144,6 +146,7 @@ export default function HomePage() {
   const [query, setQuery] = useState('')
   const [phase, setPhase] = useState<SearchPhase>({ name: 'idle' })
   const [showKeySetup, setShowKeySetup] = useState(false)
+  const searchAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const storedKeys = getStoredKeys()
@@ -166,19 +169,30 @@ export default function HomePage() {
   }
 
   const handleSearch = useCallback(async (q: string) => {
-    setQuery(q)
+    const normalizedQuery = q.trim()
+    if (normalizedQuery.length < 2) return
+
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    setQuery(normalizedQuery)
     setPhase({ name: 'loading' })
     setShowKeySetup(false)
     try {
       const { scraperKey, geminiKey, openrouterKey } = getKeys()
-      const data = await searchWithKeys(q, scraperKey || undefined, geminiKey || undefined, openrouterKey || undefined)
-      setPhase({ name: 'done', data })
+      const data = await searchWithKeys(normalizedQuery, scraperKey || undefined, geminiKey || undefined, openrouterKey || undefined, controller.signal)
+      if (!controller.signal.aborted) setPhase({ name: 'done', data })
     } catch (err) {
+      if (isRequestAborted(err)) return
       const error = err instanceof Error ? err : new Error(String(err))
       setPhase({ name: 'error', error })
       if (err instanceof ApiError && err.detail.kind === 'server' && err.detail.status === 403) setAppState({ mode: 'needs-keys', error: 'API key quota exceeded. Please enter a new key.' })
+    } finally {
+      if (searchAbortRef.current === controller) searchAbortRef.current = null
     }
   }, [])
+
+  useEffect(() => () => searchAbortRef.current?.abort(), [])
 
   const handleKeysReady = useCallback((scraperKey: string, geminiKey: string, openrouterKey: string) => {
     saveKeys(scraperKey, geminiKey, openrouterKey)
@@ -190,13 +204,6 @@ export default function HomePage() {
   const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
   const topPickCandidates = useMemo(() => phase.name === 'done' ? getTopPickCandidates(phase.data) : [], [phase])
   const bestProduct: Product | undefined = useMemo(() => phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined, [phase, topPickCandidates])
-  const handleNewSearch = useCallback(() => {
-    setQuery('')
-    setPhase({ name: 'idle' })
-    setShowKeySetup(false)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
-
   if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Preparing your search</p></div></div>
 
   if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5 pb-8"><section className="mx-auto max-w-5xl text-center"><div className="mb-2 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-[clamp(3rem,6vw,6rem)] leading-[0.84] text-[#171a16]">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare live marketplace listings and get grounded buying guidance.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} needsOpenRouter={true} initialError={appState.error} /></div>
@@ -216,9 +223,9 @@ export default function HomePage() {
           <IdleLanding onExample={q => { setQuery(q); handleSearch(q) }} />
         </>}
 
-        {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} /><LoadingState /></div>}
-        {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader data={phase.data} query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} />{topPickCandidates.length > 0 && <TopPicksCard products={topPickCandidates} query={phase.data.query} />}<div className="grid gap-4 lg:grid-cols-2">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} bestProduct={bestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} onRetry={() => handleSearch(query)} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} /><LoadingState /></div>}
+        {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
+        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} />{topPickCandidates.length > 0 && <TopPicksCard products={topPickCandidates} query={phase.data.query} />}<div className="grid gap-4 lg:grid-cols-2">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} bestProduct={bestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} onRetry={() => handleSearch(query)} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )
