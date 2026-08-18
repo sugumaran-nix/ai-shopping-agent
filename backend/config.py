@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Optional server-side provider credentials. Users may override these per request.
+    scraperapi_key: str = ""
     scrapingant_api_key: str = ""
     brightdata_api_key: str = ""
     brightdata_zone: str = "web_unlocker1"

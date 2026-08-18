@@ -6,7 +6,9 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/ping
     envVars:
-      # ── REQUIRED — set these in the Render dashboard ──────────────────────
+      # ── PROVIDERS — ScraperAPI is the default; backups are optional ─────────
+      - key: SCRAPERAPI_KEY
+        sync: false
       - key: SCRAPINGANT_API_KEY
         sync: false
       - key: BRIGHTDATA_API_KEY

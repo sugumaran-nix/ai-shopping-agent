@@ -140,6 +140,7 @@ class TestProviderKeyForwarding:
         response = client.get(
             "/api/v1/search?q=mouse",
             headers={
+                "X-ScraperAPI-Key": "test-scraperapi-key",
                 "X-ScrapingAnt-Key": "test-scrapingant-key",
                 "X-BrightData-Key": "test-brightdata-key",
                 "X-BrightData-Zone": "web_unlocker1",
@@ -148,6 +149,7 @@ class TestProviderKeyForwarding:
 
         assert response.status_code == 200
         credentials = mock_run.await_args.kwargs["provider_credentials"]
+        assert credentials.scraperapi_key == "test-scraperapi-key"
         assert credentials.scrapingant_key == "test-scrapingant-key"
         assert credentials.brightdata_key == "test-brightdata-key"
         assert credentials.brightdata_zone == "web_unlocker1"

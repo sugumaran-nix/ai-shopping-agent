@@ -6,12 +6,13 @@ This guide covers every deployment path: local dev, Docker, and production (Rend
 
 ## Prerequisites
 
-Before anything else, create a ScrapingAnt key or Bright Data Web Unlocker key and zone. Either provider can serve live marketplace HTML; recommendation scoring runs locally without any AI-provider key.
+Before anything else, create a ScraperAPI key. That is the simplest setup. ScrapingAnt and Bright Data Web Unlocker are optional backups; recommendation scoring runs locally without any AI-provider key.
 
 | Key | Where to get it | Free tier? |
 |---|---|---|
-| `SCRAPINGANT_API_KEY` | [ScrapingAnt](https://scrapingant.com/) | Recommended — 10,000 credits/month |
-| `BRIGHTDATA_API_KEY` | [Bright Data Web Unlocker](https://brightdata.com/cp/web_access) | Optional — 5,000 credits/month |
+| `SCRAPERAPI_KEY` | [ScraperAPI](https://www.scraperapi.com/) | Default provider |
+| `SCRAPINGANT_API_KEY` | [ScrapingAnt](https://scrapingant.com/) | Optional backup — 10,000 credits/month |
+| `BRIGHTDATA_API_KEY` | [Bright Data Web Unlocker](https://brightdata.com/cp/web_access) | Optional backup — 5,000 credits/month |
 | `BRIGHTDATA_ZONE` | Bright Data zone name | Required with Bright Data key |
 
 
@@ -42,6 +43,7 @@ cp .env.example .env
 
 Open `backend/.env` and fill in at minimum:
 ```
+SCRAPERAPI_KEY=your_scraperapi_key
 SCRAPINGANT_API_KEY=your_scrapingant_key
 BRIGHTDATA_API_KEY=your_brightdata_key
 BRIGHTDATA_ZONE=web_unlocker1
@@ -109,8 +111,9 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `SCRAPINGANT_API_KEY` | Optional | — | Tried first in provider fallback |
-| `BRIGHTDATA_API_KEY` | Optional | — | Tried second in provider fallback |
+| `SCRAPERAPI_KEY` | Optional | — | Tried first in provider fallback |
+| `SCRAPINGANT_API_KEY` | Optional | — | Tried second in provider fallback |
+| `BRIGHTDATA_API_KEY` | Optional | — | Tried third in provider fallback |
 | `BRIGHTDATA_ZONE` | With Bright Data | `web_unlocker1` | Web Unlocker zone name |
 | `ALLOWED_ORIGINS` | ✅ in prod | `http://localhost:3000` | Your Vercel URL — prevents cross-origin abuse |
 | `ENVIRONMENT` | — | `development` | Set to `production` on Render |
@@ -203,13 +206,13 @@ A healthy deployment should have `hit_rate_pct > 70%` after a few hours of traff
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| All sources `unavailable` | Provider keys missing or invalid | Check Render env vars and verify ScrapingAnt/Bright Data credentials |
+| All sources `unavailable` | Provider keys missing or invalid | Check Render env vars and verify at least one provider credential |
 | Recommendation summary unavailable | No valid products returned from any source | Check `/api/v1/health`, provider credentials, and source availability |
 | One source always `unavailable` | That site's HTML changed | Run `/api/v1/health`, update that scraper's `parse()` |
 | Frontend CORS error in browser | `ALLOWED_ORIGINS` not set to your Vercel URL | Update Render env var → redeploy |
 | Render deploy fails at build | Docker or Chromium installation failed | Inspect the Render image-build logs; confirm `backend/Dockerfile` and the Playwright dependencies are present |
 | `0 valid products` in logs | Parse succeeded but all items fail Pydantic validation | Run `parse()` against a saved HTML page. Check field names match the model |
-| Stale results everywhere | Provider credits exhausted or sources blocked | Check ScrapingAnt and Bright Data usage dashboards; stale cache is intentional |
+| Stale results everywhere | Provider credits exhausted or sources blocked | Check all three provider dashboards; stale cache is intentional |
 | Slow first response | Render free tier spins down after inactivity | Upgrade to a paid Render instance, or add a UptimeRobot ping every 14 min |
 | CI not running | GitHub Actions disabled | Repo → Settings → Actions → Allow all actions |
 | Browser fallback unavailable | Chromium is missing or the shared browser could not start | Check Docker build logs for `playwright install --with-deps chromium`; set `PLAYWRIGHT_EXECUTABLE_PATH` only when using a custom browser binary |

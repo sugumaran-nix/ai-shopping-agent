@@ -134,6 +134,7 @@ export const SOURCE_META: Record<Source, {
 // ── API key-aware fetch ───────────────────────────────────────────────────────
 
 export interface ProviderKeys {
+  scraperapi: string
   scrapingant: string
   brightdata: string
   brightdataZone: string
@@ -141,12 +142,14 @@ export interface ProviderKeys {
 
 export interface KeyStatus {
   scraping: { available: boolean; source: string; error: string | null }
+  scraperapi: { available: boolean; error: string | null }
   scrapingant: { available: boolean; error: string | null }
   brightdata: { available: boolean; error: string | null }
 }
 
 function providerHeaders(keys: ProviderKeys): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' }
+  if (keys.scraperapi) headers['X-ScraperAPI-Key'] = keys.scraperapi
   if (keys.scrapingant) headers['X-ScrapingAnt-Key'] = keys.scrapingant
   if (keys.brightdata) headers['X-BrightData-Key'] = keys.brightdata
   if (keys.brightdataZone) headers['X-BrightData-Zone'] = keys.brightdataZone
@@ -208,7 +211,7 @@ export function friendlyUserError(error?: string | null, kind: 'connection' | 's
   }
   if (!error) return 'This service is temporarily unavailable. Try again later.'
   const normalized = error.toLowerCase()
-  if (/scrapingant|bright.?data|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) return 'Live marketplace access was rejected. Try again later.'
+  if (/scraperapi|scrapingant|bright.?data|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) return 'Live marketplace access was rejected. Try again later.'
   if (/timeout|timed out/.test(normalized)) return 'The request took too long to respond. Try again in a moment.'
   if (/network|connect|server/.test(normalized)) return 'The service could not be reached right now. Try again later.'
   return 'This service did not return a usable response. Try again later.'
@@ -219,7 +222,7 @@ export function friendlySourceError(status: ScrapeStatus, error?: string | null)
   if (!error) return status === 'unavailable' ? 'This source is temporarily unavailable. Try another source or refresh later.' : 'Live prices are not available right now.'
 
   const normalized = error.toLowerCase()
-  if (/403|forbidden|scrapingant|bright.?data|quota|api key|unauthori/.test(normalized)) {
+  if (/403|forbidden|scraperapi|scrapingant|bright.?data|quota|api key|unauthori/.test(normalized)) {
     return 'Live price access was rejected. Try refreshing later or check the scraping connection.'
   }
   if (/timeout|timed out/.test(normalized)) {

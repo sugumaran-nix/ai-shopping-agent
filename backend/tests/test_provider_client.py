@@ -4,6 +4,7 @@ import httpx
 from utils.http_client import (
     ProviderCredentials,
     _fetch_brightdata,
+    _fetch_scraperapi,
     _fetch_scrapingant,
 )
 
@@ -37,6 +38,23 @@ class FakeClient:
     async def post(self, *args, **kwargs):
         self.calls.append(('POST', args, kwargs))
         return self.response
+
+
+@pytest.mark.asyncio
+async def test_scraperapi_request_uses_key_and_target_query_params():
+    client = FakeClient(FakeResponse(text='<html>scraperapi</html>'))
+    credentials = ProviderCredentials(scraperapi_key='scraper-key')
+
+    html = await _fetch_scraperapi(client, 'https://shop.test/search?q=mouse', credentials, True, 'in')
+
+    assert html == '<html>scraperapi</html>'
+    method, args, kwargs = client.calls[0]
+    assert method == 'GET'
+    assert args[0] == 'https://api.scraperapi.com/'
+    assert kwargs['params']['api_key'] == 'scraper-key'
+    assert kwargs['params']['url'] == 'https://shop.test/search?q=mouse'
+    assert kwargs['params']['country_code'] == 'in'
+    assert kwargs['params']['render'] is True
 
 
 @pytest.mark.asyncio

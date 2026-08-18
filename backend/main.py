@@ -60,8 +60,9 @@ logger = logging.getLogger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(
-        "AI Shopping Agent starting | env=%s scrapingant=%s brightdata=%s",
+        "AI Shopping Agent starting | env=%s scraperapi=%s scrapingant=%s brightdata=%s",
         settings.environment,
+        "configured" if settings.scraperapi_key else "MISSING",
         "configured" if settings.scrapingant_api_key else "MISSING",
         "configured" if settings.brightdata_api_key else "MISSING",
     )
@@ -95,6 +96,7 @@ app.add_middleware(
     allow_headers=[
         "Content-Type",
         "X-Request-ID",
+        "X-ScraperAPI-Key",
         "X-ScrapingAnt-Key",
         "X-BrightData-Key",
         "X-BrightData-Zone",
@@ -182,6 +184,7 @@ async def search(
     - **unavailable** — no data available from this source
 
     Optional headers:
+    - **X-ScraperAPI-Key** — user's own ScraperAPI key
     - **X-ScrapingAnt-Key** — user's own ScrapingAnt key
     - **X-BrightData-Key** — user's own Bright Data key
     - **X-BrightData-Zone** — optional Bright Data Web Unlocker zone
@@ -195,6 +198,7 @@ async def search(
 
     from utils.http_client import ProviderCredentials
     provider_credentials = ProviderCredentials(
+        scraperapi_key=request.headers.get("X-ScraperAPI-Key", "").strip() or None,
         scrapingant_key=request.headers.get("X-ScrapingAnt-Key", "").strip() or None,
         brightdata_key=request.headers.get("X-BrightData-Key", "").strip() or None,
         brightdata_zone=request.headers.get("X-BrightData-Zone", "").strip() or None,
@@ -256,9 +260,26 @@ async def cache_clear():
 @app.get("/api/v1/validate-keys", tags=["ops"])
 async def validate_keys(request: Request):
     """Validate provider credentials without exposing keys or scraping data."""
+    scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or settings.scraperapi_key
     scrapingant_key = request.headers.get("X-ScrapingAnt-Key", "").strip() or settings.scrapingant_api_key
     brightdata_key = request.headers.get("X-BrightData-Key", "").strip() or settings.brightdata_api_key
     brightdata_zone = request.headers.get("X-BrightData-Zone", "").strip() or settings.brightdata_zone
+
+    async def verify_scraperapi() -> tuple[bool, str | None]:
+        if not scraperapi_key:
+            return False, "No key provided"
+        try:
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=8) as client:
+                response = await client.get(
+                    "https://api.scraperapi.com/",
+                    params={"api_key": scraperapi_key, "url": "https://example.com/", "country_code": "in"},
+                )
+            if response.status_code == 200 and response.text.strip():
+                return True, None
+            return False, "Invalid or unavailable key"
+        except Exception:  # noqa: BLE001
+            return False, "Could not verify this key"
 
     async def verify_scrapingant() -> tuple[bool, str | None]:
         if not scrapingant_key:
@@ -292,16 +313,17 @@ async def validate_keys(request: Request):
             return False, "Could not verify this key"
 
     import asyncio
-    (scrapingant_ok, scrapingant_error), (brightdata_ok, brightdata_error) = await asyncio.gather(
-        verify_scrapingant(), verify_brightdata()
+    (scraperapi_ok, scraperapi_error), (scrapingant_ok, scrapingant_error), (brightdata_ok, brightdata_error) = await asyncio.gather(
+        verify_scraperapi(), verify_scrapingant(), verify_brightdata()
     )
-    available = scrapingant_ok or brightdata_ok
+    available = scraperapi_ok or scrapingant_ok or brightdata_ok
     return {
         "scraping": {
             "available": available,
-            "source": "user" if request.headers.get("X-ScrapingAnt-Key") or request.headers.get("X-BrightData-Key") else "server" if settings.scrapingant_api_key or settings.brightdata_api_key else "none",
+            "source": "user" if request.headers.get("X-ScraperAPI-Key") or request.headers.get("X-ScrapingAnt-Key") or request.headers.get("X-BrightData-Key") else "server" if settings.scraperapi_key or settings.scrapingant_api_key or settings.brightdata_api_key else "none",
             "error": None if available else "No configured provider could be verified",
         },
+        "scraperapi": {"available": scraperapi_ok, "error": scraperapi_error},
         "scrapingant": {"available": scrapingant_ok, "error": scrapingant_error},
         "brightdata": {"available": brightdata_ok, "error": brightdata_error},
     }

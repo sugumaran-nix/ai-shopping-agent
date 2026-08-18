@@ -29,9 +29,14 @@ class FetchError(Exception):
 
 @dataclass(frozen=True)
 class ProviderCredentials:
+    scraperapi_key: str | None = None
     scrapingant_key: str | None = None
     brightdata_key: str | None = None
     brightdata_zone: str | None = None
+
+    @property
+    def has_scraperapi(self) -> bool:
+        return bool(self.scraperapi_key or settings.scraperapi_key)
 
     @property
     def has_scrapingant(self) -> bool:
@@ -40,6 +45,10 @@ class ProviderCredentials:
     @property
     def has_brightdata(self) -> bool:
         return bool((self.brightdata_key or settings.brightdata_api_key) and (self.brightdata_zone or settings.brightdata_zone))
+
+    @property
+    def resolved_scraperapi_key(self) -> str:
+        return self.scraperapi_key or settings.scraperapi_key
 
     @property
     def resolved_scrapingant_key(self) -> str:
@@ -52,6 +61,26 @@ class ProviderCredentials:
     @property
     def resolved_brightdata_zone(self) -> str:
         return self.brightdata_zone or settings.brightdata_zone
+
+
+async def _fetch_scraperapi(
+    client: httpx.AsyncClient,
+    target_url: str,
+    credentials: ProviderCredentials,
+    render_js: bool,
+    country_code: str,
+) -> str:
+    params: dict[str, str | bool] = {
+        "api_key": credentials.resolved_scraperapi_key,
+        "url": target_url,
+        "country_code": country_code,
+        "render": render_js,
+    }
+    response = await client.get("https://api.scraperapi.com/", params=params)
+    response.raise_for_status()
+    if not response.text.strip():
+        raise FetchError("ScraperAPI returned an empty response")
+    return response.text
 
 
 async def _fetch_scrapingant(
@@ -137,14 +166,26 @@ async def fetch_html(
     render_js: bool = False,
     country_code: str = "in",
 ) -> str:
-    """Fetch HTML through ScrapingAnt, then Bright Data, with bounded attempts."""
+    """Fetch HTML through ScraperAPI, ScrapingAnt, then Bright Data, once each."""
     creds = credentials or ProviderCredentials()
-    if not creds.has_scrapingant and not creds.has_brightdata:
+    if not creds.has_scraperapi and not creds.has_scrapingant and not creds.has_brightdata:
         raise FetchError("No scraping provider is configured for this request")
 
     timeout = 50 if render_js else min(settings.request_timeout_seconds, 25)
     errors: list[str] = []
     async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
+        if creds.has_scraperapi:
+            try:
+                return await _fetch_scraperapi(client, target_url, creds, render_js, country_code)
+            except httpx.HTTPStatusError as exc:
+                errors.append(f"ScraperAPI HTTP {exc.response.status_code}")
+            except _RETRYABLE:
+                errors.append("ScraperAPI network timeout")
+            except FetchError as exc:
+                errors.append(str(exc))
+            except Exception:  # noqa: BLE001
+                errors.append("ScraperAPI request failed")
+
         if creds.has_scrapingant:
             try:
                 return await _fetch_scrapingant(client, target_url, creds, render_js, country_code)

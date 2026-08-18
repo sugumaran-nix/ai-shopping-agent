@@ -50,7 +50,7 @@ function friendlySearchError(error: ApiError | Error): string {
   if (!(error instanceof ApiError)) return 'Something interrupted the comparison. Please try again.'
   if (error.detail.kind === 'network') return 'Cannot reach the comparison service right now. Check your connection and try again.'
   if (error.detail.kind === 'timeout') return 'The comparison is taking longer than expected. Please try again in a moment.'
-  if (error.detail.kind === 'server' && (error.detail.status === 403 || /scrapingant|bright.?data|forbidden|quota|api key|unauthori/i.test(error.message))) {
+  if (error.detail.kind === 'server' && (error.detail.status === 403 || /scraperapi|scrapingant|bright.?data|forbidden|quota|api key|unauthori/i.test(error.message))) {
     return 'The live price connection was rejected. Check the scraping connection or try again later.'
   }
   return 'The comparison service is temporarily unavailable. Please try again.'
