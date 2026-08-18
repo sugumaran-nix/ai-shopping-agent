@@ -40,7 +40,7 @@ class MyntraScraper:
         import cache as cache_module
         cached = cache_module.get(self.source.value, query)
         if cached and cached.is_fresh:
-            products = self._products_from_cache(cached)
+            products = self._filter_relevant_products(self._products_from_cache(cached), query)
             if products:
                 logger.debug("Myntra: fresh cache hit for %s", query[:40])
                 return SourceResult(source=self.source, status=ScrapeStatus.FRESH, products=products)
@@ -48,7 +48,7 @@ class MyntraScraper:
         try:
             products = await self._fetch(query, scraperapi_key)
             if not products:
-                raise ValueError("0 products returned from Myntra")
+                raise ValueError("0 relevant products returned from Myntra")
 
             cache_module.store(
                 self.source.value, query,
@@ -59,8 +59,9 @@ class MyntraScraper:
         except Exception as exc:  # noqa: BLE001
             logger.error("Myntra failed: %s", exc)
             if cached:
-                prods = self._products_from_cache(cached)
-                return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
+                prods = self._filter_relevant_products(self._products_from_cache(cached), query)
+                if prods:
+                    return SourceResult(source=self.source, status=ScrapeStatus.STALE, products=prods, error=str(exc))
             return SourceResult(source=self.source, status=ScrapeStatus.UNAVAILABLE, products=[], error=str(exc))
 
     @staticmethod
@@ -82,9 +83,10 @@ class MyntraScraper:
         # Try 1: Myntra internal search API directly
         try:
             products = await self._try_internal_api(query)
-            if products:
-                logger.debug("Myntra: %d from internal API", len(products))
-                return products
+            relevant = self._filter_relevant_products(products, query)
+            if relevant:
+                logger.debug("Myntra: %d relevant products from internal API", len(relevant))
+                return relevant
         except Exception as exc:  # noqa: BLE001
             logger.debug("Myntra internal API failed: %s", exc)
 
@@ -93,9 +95,10 @@ class MyntraScraper:
         if scraperapi_key or settings.scraperapi_key:
             try:
                 products = await self._try_scraperapi_premium(query, scraperapi_key)
-                if products:
-                    logger.debug("Myntra: %d from ScraperAPI premium", len(products))
-                    return products
+                relevant = self._filter_relevant_products(products, query)
+                if relevant:
+                    logger.debug("Myntra: %d relevant products from ScraperAPI premium", len(relevant))
+                    return relevant
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Myntra ScraperAPI premium failed: %s", exc)
 
@@ -156,6 +159,36 @@ class MyntraScraper:
 
         walk(value)
         return found
+
+    @staticmethod
+    def _query_terms(query: str) -> list[str]:
+        stopwords = {"a", "an", "and", "for", "in", "of", "on", "the", "to", "with", "buy", "best", "online"}
+        return [term for term in re.findall(r"[a-z0-9]+", query.lower()) if len(term) > 1 and term not in stopwords]
+
+    @staticmethod
+    def _term_matches_title(term: str, title_tokens: set[str], title: str) -> bool:
+        if term in title_tokens or term in title:
+            return True
+        singular = term[:-1] if term.endswith("s") and len(term) > 3 else term
+        return singular in title_tokens or any(token.rstrip("s") == singular for token in title_tokens)
+
+    @classmethod
+    def _filter_relevant_products(cls, products: list[Product], query: str) -> list[Product]:
+        terms = cls._query_terms(query)
+        if not terms:
+            return products
+
+        scored: list[tuple[int, int, Product]] = []
+        for index, product in enumerate(products):
+            title = re.sub(r"[^a-z0-9 ]+", " ", product.title.lower())
+            title_tokens = set(title.split())
+            matched = sum(cls._term_matches_title(term, title_tokens, title) for term in terms)
+            if matched:
+                phrase_bonus = 2 if " ".join(terms) in title else 0
+                scored.append((matched + phrase_bonus, -index, product))
+
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return [product for _, _, product in scored]
 
     def _product_from_item(self, item: dict) -> Product | None:
         brand = str(item.get("brand") or "").strip()

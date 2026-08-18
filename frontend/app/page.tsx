@@ -1,16 +1,16 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { AlertTriangle, Bot, CircleDot, Plus, RefreshCw, Settings, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
+import { AlertTriangle, Bot, Plus, RefreshCw, Settings, SlidersHorizontal, WifiOff, X, Zap } from 'lucide-react'
 import { SearchBar } from '@/components/SearchBar'
 import { SourceSection } from '@/components/SourceSection'
 import { AIRecommendation } from '@/components/AIRecommendation'
-import { TopPicksCard } from '@/components/TopPicksCard'
+import { TopPicksCard, rankTopPicks } from '@/components/TopPicksCard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ApiKeySetup } from '@/components/ApiKeySetup'
 import {
   validateKeys, searchWithKeys, ApiError,
-  type Product, type SearchResponse, type ScrapeStatus, STATUS_ORDER,
+  type Product, type SearchResponse, STATUS_ORDER,
 } from '@/lib/api'
 import { getStoredKeys, saveKeys } from '@/lib/keys'
 
@@ -79,24 +79,10 @@ function ErrorState({ error, onRetry, onChangeKeys }: { error: ApiError | Error;
   )
 }
 
-function SummaryBar({ data, onRefresh, onChangeKeys }: { data: SearchResponse; onRefresh: () => void; onChangeKeys: () => void }) {
-  const counts: Record<ScrapeStatus, number> = { fresh: 0, stale: 0, unavailable: 0 }
-  data.results.forEach(r => { counts[r.status] += 1 })
-  return (
-    <div className="flex flex-col gap-3 rounded-[20px] border border-[#dfe1d8] bg-white/65 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <span className="max-w-full truncate font-display text-lg text-[#171a16]">“{data.query}”</span>
-        <span className="hidden h-4 w-px bg-[#dfe1d8] sm:block" aria-hidden />
-        {counts.fresh > 0 && <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-[#62841f]"><CircleDot className="h-3.5 w-3.5" />{counts.fresh} live</span>}
-        {counts.stale > 0 && <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#a06a1d]">{counts.stale} cached</span>}
-        {counts.unavailable > 0 && <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#8a8f84]">{counts.unavailable} down</span>}
-      </div>
-      <div className="flex items-center gap-2">
-        <button onClick={onRefresh} className="focus-ring flex items-center gap-2 rounded-full bg-[#171a16] px-3.5 py-2 text-xs font-bold text-[#f5f4ef] transition hover:bg-[#303a27]"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button>
-        <button onClick={onChangeKeys} className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button>
-      </div>
-    </div>
-  )
+function ResultsSearchHeader({ data, query, onChange, onSearch, loading, onRefresh, onChangeKeys, onNewSearch }: { data?: SearchResponse; query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onRefresh?: () => void; onChangeKeys: () => void; onNewSearch: () => void }) {
+  const freshCount = data?.results.filter(result => result.status === 'fresh').length ?? 0
+  const visibleCount = data?.results.filter(result => result.products.length > 0).length ?? 0
+  return <div className="rounded-[20px] border border-[#dfe1d8] bg-white/65 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2.5"><p className="eyebrow text-[#718239]">Live price desk</p>{data && <span className="rounded-full bg-[#eff7d9] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64832b]">{freshCount || visibleCount} live</span>}</div><div className="flex items-center gap-2"><button onClick={onRefresh} disabled={!onRefresh || loading} className="focus-ring rounded-full border border-[#dfe1d8] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#4e6d19] disabled:cursor-not-allowed disabled:opacity-40">{loading ? 'Searching…' : 'Refresh'}</button><button onClick={onChangeKeys} className="focus-ring flex h-8 w-8 items-center justify-center rounded-full border border-[#dfe1d8] bg-white/70 text-[#73786f] transition hover:border-[#b7c19e] hover:text-[#171a16]" title="Change API keys" aria-label="Change API keys"><Settings className="h-3.5 w-3.5" /></button><button onClick={onNewSearch} className="focus-ring flex items-center gap-1.5 rounded-full bg-[#c9f36b] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
 }
 
 function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
@@ -118,23 +104,17 @@ function IdleLanding({ onExample }: { onExample: (q: string) => void }) {
   )
 }
 
-function getTopPicks(data: SearchResponse): Product[] {
-  const availableProducts = data.results
+function getTopPickCandidates(data: SearchResponse): Product[] {
+  const products = data.results
     .filter(result => result.status !== 'unavailable')
     .flatMap(result => result.products)
     .filter(product => Number.isFinite(product.price) && product.price > 0)
-  const currencyCounts = availableProducts.reduce<Record<string, number>>((counts, product) => ({ ...counts, [product.currency]: (counts[product.currency] ?? 0) + 1 }), {})
+  const currencyCounts = products.reduce<Record<string, number>>((counts, product) => ({ ...counts, [product.currency]: (counts[product.currency] ?? 0) + 1 }), {})
   const comparableCurrency = Object.entries(currencyCounts).sort(([, a], [, b]) => b - a)[0]?.[0]
-  if (!comparableCurrency) return []
-  return availableProducts
-    .filter(product => product.currency === comparableCurrency)
-    .sort((a, b) => a.price - b.price || (b.rating ?? 0) - (a.rating ?? 0))
-    .slice(0, 10)
+  return comparableCurrency ? products.filter(product => product.currency === comparableCurrency) : []
 }
 
-function ResultsSearchHeader({ query, onChange, onSearch, loading, onNewSearch }: { query: string; onChange: (value: string) => void; onSearch: (value: string) => void; loading: boolean; onNewSearch: () => void }) {
-  return <div className="rounded-[20px] border border-[#dfe1d8] bg-white/60 p-3 shadow-[0_12px_34px_rgba(44,52,31,0.05)] backdrop-blur-xl lg:sticky lg:top-[88px] lg:z-10 sm:p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="eyebrow text-[#718239]">Live price desk</p><p className="mt-1 text-xs font-medium text-[#858a81]">Search again without leaving your shortlist.</p></div><button onClick={onNewSearch} className="focus-ring flex flex-shrink-0 items-center gap-1.5 rounded-full bg-[#c9f36b] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#35530a] transition hover:bg-[#b9e95b]"><Plus className="h-3.5 w-3.5" /> New search</button></div><SearchBar value={query} onChange={onChange} onSearch={onSearch} loading={loading} compact /></div>
-}
+
 
 export default function HomePage() {
   const [appState, setAppState] = useState<AppState>({ mode: 'checking' })
@@ -181,8 +161,8 @@ export default function HomePage() {
   }, [query, handleSearch])
 
   const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
-  const topPicks = phase.name === 'done' ? getTopPicks(phase.data) : []
-  const lowestProduct: Product | undefined = topPicks[0]
+  const topPickCandidates = phase.name === 'done' ? getTopPickCandidates(phase.data) : []
+  const bestProduct: Product | undefined = phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined
   const handleNewSearch = useCallback(() => {
     setQuery('')
     setPhase({ name: 'idle' })
@@ -209,9 +189,9 @@ export default function HomePage() {
           <IdleLanding onExample={q => { setQuery(q); handleSearch(q) }} />
         </>}
 
-        {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onNewSearch={handleNewSearch} /><LoadingState /></div>}
-        {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} />{topPicks.length > 0 && <TopPicksCard products={topPicks} query={phase.data.query} />}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} onRetry={() => handleSearch(query)} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} /><LoadingState /></div>}
+        {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
+        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader data={phase.data} query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} onNewSearch={handleNewSearch} />{topPickCandidates.length > 0 && <TopPicksCard products={topPickCandidates} query={phase.data.query} />}<div className="grid gap-4 lg:grid-cols-2">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} bestProduct={bestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} onRetry={() => handleSearch(query)} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )

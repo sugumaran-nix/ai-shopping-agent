@@ -222,3 +222,29 @@ async def test_fresh_cache_hit_skips_upstream_request(monkeypatch):
     assert result.status == ScrapeStatus.FRESH
     assert len(result.products) == 1
     assert result.products[0].title == "Cached product"
+
+
+class TestMyntraRelevance:
+    def test_ranks_matching_products_and_drops_unrelated_titles(self):
+        from models import Product, Source
+        from scrapers.myntra import MyntraScraper
+
+        products = [
+            Product(source=Source.MYNTRA, title="Casual Cotton Shirt", price=599, url="https://myntra.test/shirt"),
+            Product(source=Source.MYNTRA, title="Poco C51 Silicone Phone Case", price=199, url="https://myntra.test/case"),
+            Product(source=Source.MYNTRA, title="Poco C51 Phone Cover Case", price=249, url="https://myntra.test/case-2"),
+        ]
+
+        filtered = MyntraScraper._filter_relevant_products(products, "poco c51 phone case")
+
+        assert [product.title for product in filtered] == [
+            "Poco C51 Silicone Phone Case",
+            "Poco C51 Phone Cover Case",
+        ]
+
+    def test_keeps_all_products_when_query_has_no_terms(self):
+        from models import Product, Source
+        from scrapers.myntra import MyntraScraper
+
+        product = Product(source=Source.MYNTRA, title="Cotton Shirt", price=599, url="https://myntra.test/shirt")
+        assert MyntraScraper._filter_relevant_products([product], "a") == [product]
