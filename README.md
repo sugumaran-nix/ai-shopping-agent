@@ -1,366 +1,299 @@
-# AI Shopping Agent
+# AI Shopping Agent — Live Marketplace Price Comparison
 
-Compares products across **Amazon, Flipkart, Meesho, and Myntra**, then uses **Google Gemini** when available to generate a buying recommendation grounded strictly in the live product data returned.
+> Search once. Compare four marketplaces. Choose with confidence.
 
-**No dummy, sample, or fabricated data exists anywhere in this codebase.** Every product shown comes from a real scrape or a real API call, and every result is explicitly labeled — `fresh`, `stale`, or `unavailable` — so you always know what you're looking at.
+![Next.js](https://img.shields.io/badge/Next.js-171a16?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-35530a?style=for-the-badge&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-718239?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_AI-4e6d19?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deployed_on_Vercel-171a16?style=for-the-badge&logo=vercel&logoColor=white)
+
+**[🚀 Live Demo](https://ai-shopping-agent-theta.vercel.app)** · **[GitHub Repository](https://github.com/sugumaran-nix/ai-shopping-agent)**
+
+<!--
+---
+
+Replace the line below with a recorded product-search GIF when available.
+
+![AI Shopping Agent Demo](./docs/demo.gif)
+
+> 📸 **Demo GIF coming soon** — record a short search from query to ranked shortlist and place it at `docs/demo.gif`.
+
+-->
 
 ---
 
-## Architecture
+## ✨ Features
 
-```
-backend/
-  main.py                   FastAPI app (versioned routes, middleware stack)
-  config.py                 Centralized, validated settings (pydantic-settings)
-  models.py                 Product schema + strict validation rules
-  cache.py                  Disk-backed fresh/stale cache with stats
-  scrapers/
-    base.py                 Shared scrape → validate → cache → fallback flow
-    amazon.py / flipkart.py / meesho.py / myntra.py
-  services/
-    aggregator.py           Runs all four sources concurrently (semaphore-bounded)
-    ai_service.py           Gemini → OpenRouter → deterministic fallback pipeline
-    health_monitor.py       Canary health checks per source
-  utils/
-    http_client.py          ScraperAPI wrapper with retry/backoff
-    headers.py              Shared parsing utilities (price, rating, URL)
-  tests/
-    test_models.py          Pydantic validation unit tests
-    test_cache.py           Cache behaviour tests
-    test_api.py             API endpoint integration tests
-    test_scrapers.py        Parser unit tests (no network)
-
-frontend/
-  app/page.tsx              Search UI
-  components/
-    StatusBadge.tsx         Live / Cached / Unavailable indicator
-    SourceSection.tsx       Per-retailer results block with internal scrolling
-    ProductCard.tsx         Product row with comparable-price highlight
-    AIRecommendation.tsx
-    SearchBar.tsx           Search input with local suggestions
-    ThemeToggle.tsx         Persistent light/dark mode control
-  lib/api.ts                Typed API client
-```
-
-### Request flow
-
-The browser sends user-provided API keys through request headers. Keys remain in `sessionStorage`, are never written to the backend cache, and are used only for the current search request.
-
-```
-User → GET /api/v1/search?q=...
-         ↓ request ID middleware
-         ↓ security headers middleware
-         ↓ request logging middleware
-       aggregator.run_search()
-         ├── AmazonScraper.search()   ─┐
-         ├── FlipkartScraper.search() ─┤ concurrent, semaphore-bounded
-         ├── MeeshoScraper.search()   ─┤
-         ├── MyntraScraper.search()   ─┤
-                 ↓
-         BaseScraper: fetch → parse → validate → cache → fresh/stale/unavailable
-                 ↓
-         ai_service.generate_recommendation()
-                 ↓
-         SearchResponse (labeled per source)
-```
+- **Four live marketplaces** — Compare Amazon, Flipkart, Meesho, and Myntra in one focused results workspace.
+- **Top 10 ranked shortlist** — Overall best ranking uses relevance, rating, review confidence, and price context rather than simply choosing the cheapest product.
+- **Per-marketplace filters** — Sort each source by best match, low price, high price, or top rating without losing comparison context.
+- **Grounded AI recommendations** — Gemini explains the returned products when available; OpenRouter can act as an optional fallback, followed by a transparent deterministic live-data summary.
+- **No fabricated listings** — Products come from live scrapes or cached real results and are labeled `fresh`, `stale`, or `unavailable`.
+- **Resilient scraping** — ScraperAPI keys can be supplied by the user, scraper failures retry safely, and stale cache data is shown instead of a blank result.
+- **Myntra relevance filtering** — Query-aware parsing and identity matching prevent unrelated products from appearing in the results.
+- **Stampede-safe caching** — Fresh-cache short-circuits, single-flight locking, disk-backed persistence, and optional Redis reduce repeated upstream requests.
+- **Session-only API access** — User-provided keys stay in the browser session, are forwarded through request headers, and are cleared when the tab session ends.
+- **Editorial responsive UI** — Dark/light mode, local search suggestions, responsive cards, inline marketplace scrolling, smooth loading states, and a compact sticky results search bar.
+- **Resilient product images** — Lazy-loaded and relative image URLs are normalized, placeholders are rejected, and failed remote images receive a clean fallback tile.
 
 ---
 
-## Frontend experience
+## 🛠 Tech Stack
 
-The frontend is designed as a focused price-comparison workspace rather than a generic dashboard. The landing view introduces the search flow, while a completed search replaces the landing content with a compact results desk. The logo and **New search** action intentionally return users to the landing experience.
-
-Long marketplace lists stay inside their source cards instead of expanding the entire page. This keeps the comparison grid aligned on desktop and prevents one source with dozens of products from pushing every other source far below the fold. On smaller screens, the internal list height is reduced so the page remains easy to scan and scroll.
-
-| Frontend surface | Behavior |
+| Layer | Technology |
 |---|---|
-| Search suggestions | Related shopping queries are filtered locally in the browser; they do not require a new backend endpoint. |
-| Results loading | Marketplace-shaped skeleton cards preserve layout while real listings are fetched. |
-| Product comparison | Lowest comparable price is marked with a subtle Best badge when all prices use the same currency. |
-| Theme control | The header toggle persists light/dark mode in browser storage and respects reduced-motion preferences. |
-| Source cards | Each marketplace has independent Best match, Low price, High price, and Top rated filters plus an internal scroll area for long result lists. |
-| Top 10 shortlist | Cross-marketplace ranking balances relevance, rating, review confidence, and price context rather than simply choosing the cheapest item. |
-| API-key setup | Keys are entered in a compact first-run flow and remain in the browser session only. |
-| Search resilience | Gemini retries transient failures, optionally falls back to OpenRouter, and always has a deterministic live-data summary fallback. |
-| Cache protection | Fresh results short-circuit upstream requests; single-flight locking prevents concurrent cache stampedes; Redis is optional with disk-backed fallback. |
+| Frontend framework | Next.js 14 App Router |
+| Frontend language | TypeScript |
+| Styling | Tailwind CSS and custom editorial UI styles |
+| Backend framework | FastAPI |
+| Scraping and HTTP | httpx, ScraperAPI, BeautifulSoup, lxml |
+| AI providers | Google Gemini, optional OpenRouter, deterministic live-data fallback |
+| Validation | Pydantic and pydantic-settings |
+| Cache | Diskcache by default, optional Redis for shared persistence |
+| Deployment | Vercel frontend, Render backend, Docker-compatible services |
 
-The frontend is intentionally careful about wording: user-facing copy describes the shopping action and result state, while implementation details such as framework names stay in the project documentation and deployment notes.
+---
 
-## Setup
+## 📁 Project Structure
 
-The default comparison surface is intentionally limited to four sources: Amazon, Flipkart, Meesho, and Myntra. The optional `ebay_service.py` remains outside the active aggregator and is not shown in the current UI.
+```
+ai-shopping-agent/
+├── backend/
+│   ├── main.py                 # FastAPI routes, headers, health and key validation
+│   ├── config.py               # Validated environment settings
+│   ├── models.py               # Product and response schemas
+│   ├── cache.py                # Disk-backed cache with optional Redis backend
+│   ├── scrapers/
+│   │   ├── base.py             # Shared fetch, parse, validate, cache and fallback flow
+│   │   ├── amazon.py           # Amazon search parser
+│   │   ├── flipkart.py         # Flipkart search parser
+│   │   ├── meesho.py           # Meesho search parser
+│   │   └── myntra.py           # Myntra API/HTML parser and relevance filtering
+│   ├── services/
+│   │   ├── aggregator.py       # Concurrent four-marketplace orchestration
+│   │   ├── ai_service.py       # Gemini → OpenRouter → deterministic fallback
+│   │   └── health_monitor.py   # Per-marketplace canary checks
+│   ├── utils/
+│   │   ├── headers.py          # Request headers, parsing and image URL helpers
+│   │   └── http_client.py      # ScraperAPI request wrapper and retry logic
+│   └── tests/                  # API, cache, model and scraper regression tests
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx            # Landing page, search flow and results workspace
+│   │   ├── layout.tsx          # Metadata, navbar and theme setup
+│   │   └── globals.css         # Theme, responsive layout and motion rules
+│   ├── components/
+│   │   ├── ApiKeySetup.tsx     # Session-only API key setup
+│   │   ├── SearchBar.tsx        # Search input and local suggestions
+│   │   ├── TopPicksCard.tsx     # Ranked shortlist and ranking filters
+│   │   ├── SourceSection.tsx    # Marketplace card and inline filters
+│   │   ├── ProductCard.tsx      # Product tile and image fallback
+│   │   └── ThemeToggle.tsx      # Light/dark mode control
+│   ├── lib/
+│   │   ├── api.ts              # Typed backend client and error handling
+│   │   └── keys.ts             # Browser session key management
+│   ├── package.json
+│   └── vercel.json
+├── render.yaml                 # Render backend service definition
+├── docker-compose.yml          # Local multi-service development
+├── deploy.sh                   # CI/deployment helper
+└── README.md
+```
 
-### Requirements
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
 
 - Python 3.12+
-- Node 20+ (for frontend)
-- [ScraperAPI key](https://www.scraperapi.com/) — free tier available
-- [Google Gemini API key](https://aistudio.google.com/app/apikey) — optional primary AI provider
-- [OpenRouter API key](https://openrouter.ai/keys) — optional free-model fallback
+- Node.js 20+
+- pnpm
+- A ScraperAPI key for live marketplace scraping
+- A Gemini key for AI recommendations, or an optional OpenRouter key as a fallback
 
-### Backend
+The application also supports user-provided keys through the setup screen. Those keys are stored only in the current browser session and are never written to the backend cache.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/sugumaran-nix/ai-shopping-agent.git
+cd ai-shopping-agent
+```
+
+### 2. Configure and run the backend
 
 ```bash
 cd backend
-python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-cp .env.example .env
-# Edit .env — fill in SCRAPERAPI_KEY; Gemini/OpenRouter keys are optional
-
-uvicorn main:app --reload
 ```
 
-API runs at **http://localhost:8000**. Try:
-- `GET /api/v1/search?q=wireless+mouse`
-- `GET /api/v1/health`
-- `GET /api/ping`
-- `GET /api/docs` — interactive Swagger UI
+Create `backend/.env` with server-side defaults if desired. User-entered keys from the frontend can be used instead.
 
-### Frontend
+```env
+SCRAPERAPI_KEY=
+GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+ALLOWED_ORIGINS=http://localhost:3000
+CACHE_TTL_SECONDS=1800
+STALE_SERVE_TTL_SECONDS=21600
+GEMINI_MODEL=gemini-flash-latest
+OPENROUTER_MODEL=openrouter/free
+REDIS_URL=
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+```
+
+Start FastAPI:
+
+```bash
+uvicorn main:app --reload --port 8000
+```
+
+The backend exposes a cheap liveness check at [http://localhost:8000/api/ping](http://localhost:8000/api/ping), interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs), and the search route at `/api/v1/search?q=...`.
+
+### 3. Configure and run the frontend
+
+Open a second terminal:
 
 ```bash
 cd frontend
-pnpm install --frozen-lockfile
-cp .env.local.example .env.local
-# Set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-
-pnpm run dev
+pnpm install
 ```
 
-Frontend runs at **http://localhost:3000**.
+Create `frontend/.env.local`:
 
-### Docker (both services)
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+Start Next.js:
 
 ```bash
-# Fill in your keys first:
-cp backend/.env.example backend/.env
-# Edit backend/.env
-
-docker compose up --build
+pnpm dev
 ```
 
-Both services include health checks and restart policies. The backend cache persists in a named Docker volume (`backend_cache`).
+Open [http://localhost:3000](http://localhost:3000), enter your API keys in the setup screen, and search for a product.
 
 ---
 
-## Environment variables
+## 🔄 How a Search Works
 
-All variables are documented in `backend/.env.example`. Key ones:
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SCRAPERAPI_KEY` | ✅ | — | ScraperAPI proxy key |
-| `GEMINI_API_KEY` | — | — | Optional Google Gemini API key; the app falls back to live-data summaries when unavailable |
-| `ALLOWED_ORIGINS` | — | `http://localhost:3000` | Comma-separated CORS origins |
-| `CACHE_TTL_SECONDS` | — | `1800` | Fresh cache window (30 min) |
-| `CACHE_DIR` | — | `.cache` | Persistent disk-cache directory when Redis is not configured |
-| `STALE_SERVE_TTL_SECONDS` | — | `21600` | Stale fallback window (6 hr) |
-| `GEMINI_MODEL` | — | `gemini-flash-latest` | Gemini model alias; transient failures retry and fall back to a live-data summary |
-| `OPENROUTER_API_KEY` | — | — | Optional OpenRouter key for free-model fallback |
-| `OPENROUTER_MODEL` | — | `openrouter/free` | OpenRouter free-model router alias |
-| `REDIS_URL` | — | — | Optional Redis URL for cache persistence across instances and restarts; diskcache is used when omitted |
-| `ENVIRONMENT` | — | `development` | `development` or `production` |
-| `LOG_LEVEL` | — | `INFO` | Python log level |
-
----
-
-## Running tests
-
-```bash
-cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-
-# All tests
-pytest
-
-# With coverage report
-pytest --cov=. --cov-report=term-missing
-
-# Specific test file
-pytest tests/test_api.py -v
+```
+User enters a query
+        ↓
+Frontend sends session-only API keys as request headers
+        ↓
+FastAPI aggregator runs Amazon, Flipkart, Meesho and Myntra concurrently
+        ↓
+Each scraper fetches → parses → validates → caches → labels its result
+        ↓
+Top 10 ranking combines relevance, rating, review confidence and price context
+        ↓
+Gemini recommendation, OpenRouter fallback or deterministic live-data summary
+        ↓
+Frontend shows the ranked shortlist and source-specific product cards
 ```
 
----
+Every result is labeled according to its source state:
 
-## API reference
-
-### `GET /api/v1/search`
-
-Search all configured marketplaces.
-
-**Query params:**
-- `q` (string, required, 2–200 chars) — product search query
-
-**Response:** `SearchResponse`
-```json
-{
-  "query": "wireless mouse",
-  "request_id": "a1b2c3d4",
-  "results": [
-    {
-      "source": "amazon",
-      "status": "fresh",
-      "products": [
-        {
-          "title": "Logitech M235 Wireless Mouse",
-          "price": 799.0,
-          "currency": "INR",
-          "rating": 4.3,
-          "review_count": 12450,
-          "url": "https://www.amazon.in/dp/...",
-          "image_url": "https://...",
-          "fetched_at": "2025-01-01T10:00:00"
-        }
-      ],
-      "error": null
-    }
-  ],
-  "ai_recommendation": "Best value: Logitech M235 on Amazon at ₹799 with a 4.3/5 rating...",
-  "ai_error": null
-}
-```
-
-**Source statuses:**
-- `fresh` — scraped successfully right now
-- `stale` — scrape failed; showing last-known-good cached result
-- `unavailable` — scrape failed and no cache exists
-
-### `GET /api/ping`
-
-Cheap liveness check. No external calls. Use for load-balancer health checks.
-
-### `GET /api/v1/health`
-
-Runs a real canary search per source and reports which are working. **Expensive** — do not use as a load-balancer health check. Wire to a scheduled job instead.
-
-### `GET /api/v1/cache/stats`
-
-Returns cache hit/miss rates and disk usage.
-
-### `GET /api/docs`
-
-Interactive Swagger UI.
-
----
-
-## Keeping scrapers healthy
-
-Site HTML changes over time. This project makes that visible rather than silent:
-
-1. **`GET /api/v1/health`** — runs a real search per source right now and shows which are returning valid products.
-2. **CI cron** (add to `.github/workflows/deploy.yml`) — schedule a `curl "$BACKEND_URL/api/v1/health"` every 6 hours and alert if any source is unhealthy. You find out the same day a selector breaks, not weeks later.
-3. **Stale cache** — when a scraper fails, it falls back to the last real successful result, labeled `stale`, instead of an empty or broken response.
-
-**When a scraper breaks:** check `/api/v1/health`, open the affected site in a browser, inspect the HTML structure, and update that scraper's `parse()` method. The selectors most likely to change are commented in each scraper file.
-
----
-
-## Deployment
-
-### Render (backend)
-
-1. Connect your GitHub repo in the Render dashboard.
-2. Set service type to **Web Service**, root `/backend`.
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add all env vars from `.env.example` in the Render dashboard.
-6. Add `RENDER_DEPLOY_HOOK` and `BACKEND_URL` as GitHub secrets for CI.
-
-### Vercel (frontend)
-
-1. Import the repo in Vercel, root `/frontend`.
-2. Set `NEXT_PUBLIC_API_BASE_URL` to your Render backend URL.
-3. Add `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` as GitHub secrets.
-
-CI deploys automatically on push to `main` — lint → test → deploy backend → wait for health → deploy frontend.
-
-### Manual deploy
-
-```bash
-export RENDER_DEPLOY_HOOK=...
-export VERCEL_TOKEN=...
-export VERCEL_ORG_ID=...
-export VERCEL_PROJECT_ID=...
-export BACKEND_URL=https://your-backend.onrender.com
-
-bash deploy.sh
-```
-
----
-
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| All sources return `unavailable` | `SCRAPERAPI_KEY` missing or invalid | Check `.env`, verify key at scraperapi.com dashboard |
-| `AI analysis temporarily unavailable` | Gemini quota/capacity issue | The app retries, then shows a live-data summary; optionally add an OpenRouter key |
-| One source always `unavailable` | Site layout changed, selectors broken | Check `/api/v1/health`, update `parse()` in that scraper |
-| `stale` results across all sources | Network issue or ScraperAPI quota exhausted | Check ScraperAPI dashboard for credit usage |
-| `0 valid products` warning in logs | Parse succeeded but all products failed Pydantic validation | Run the scraper's `parse()` manually against a saved page, check field mapping |
-| Frontend shows wrong prices | Old stale cache | Wait for `STALE_SERVE_TTL_SECONDS` to expire, or clear with `POST /api/v1/cache/clear` (add if needed) |
-
----
-
-## GitHub repository metadata
-
-Use these values in **GitHub → Settings → General → Social preview / About**. The short description is suitable for GitHub’s About field; the longer description is useful for the repository profile, launch posts, or project listings.
-
-| GitHub field | Copy-and-paste value |
+| Status | Meaning |
 |---|---|
-| **About / short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with grounded AI buying recommendations. |
-| **Long project description** | AI shopping agent that gathers current product listings from four Indian marketplaces, ranks the best overall options using relevance, rating, review confidence, and price context, and explains the result with grounded AI or a transparent live-data fallback. |
-| **Website** | Add the deployed Vercel frontend URL, for example `https://your-shopping-agent.vercel.app`. |
-| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `gemini`, `amazon`, `flipkart`, `meesho`, `myntra` |
-| **Social preview headline** | Shop less. Choose better. |
-| **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
-
-Keep the About text focused on the four active sources. Do not list eBay in the description or topics unless it is wired into the active aggregator and frontend again.
+| `fresh` | The source returned valid products during the current search. |
+| `stale` | Live fetching failed, so the most recent real cached result is shown. |
+| `unavailable` | No valid live or cached products are available for that source. |
 
 ---
 
-## Verification checklist
+## 🔐 API-Key Privacy Model
 
-The currently supported verification commands are:
+The setup screen accepts ScraperAPI, Gemini, and optional OpenRouter keys. The frontend keeps them in `sessionStorage` and forwards them to the backend only through request headers. The backend uses them for the current request and does not store them in scrape or AI recommendation caches.
+
+Refreshing the page or returning home keeps the keys available in the same browser tab session. Closing the tab clears the session, after which the setup screen appears again. This provides a practical balance between convenience and session-only access.
+
+---
+
+## 🧠 Recommendation and Ranking
+
+The ranked shortlist is intentionally not a lowest-price list. Products are first made comparable by currency and relevance, then scored using product identity, rating, review confidence, and price context. Users can switch between **Overall best**, **Top rated**, **Best price**, and **Most reviewed**.
+
+AI recommendations are grounded only in the products returned by the marketplace search. When Gemini is unavailable, the service can try OpenRouter and finally returns a deterministic data-based explanation instead of failing the entire search.
+
+---
+
+## 🌐 Deployment
+
+### Render backend
+
+1. Connect the repository in the [Render dashboard](https://render.com/).
+2. Create a Web Service with root directory `/backend`.
+3. Use `pip install -r requirements.txt` as the build command.
+4. Use `uvicorn main:app --host 0.0.0.0 --port $PORT` as the start command.
+5. Add the backend variables from the configuration example above.
+6. Configure CORS with the deployed Vercel frontend URL.
+
+### Vercel frontend
+
+1. Import the repository in [Vercel](https://vercel.com/).
+2. Set the project root to `/frontend`.
+3. Set `NEXT_PUBLIC_API_BASE_URL` to the deployed Render backend URL.
+4. Use pnpm with the committed `pnpm-lock.yaml`.
+5. Deploy from the `main` branch.
+
+The configured public frontend is [ai-shopping-agent-theta.vercel.app](https://ai-shopping-agent-theta.vercel.app).
+
+---
+
+## ✅ Verification
+
+### Backend tests
 
 ```bash
-# Backend behavior
 cd backend
 pytest -q
+```
 
-# Frontend lint and production build
-cd ../frontend
+The suite covers API behavior, cache semantics, single-flight concurrency, model validation, image URL normalization, scraper parsing, and Myntra relevance filtering.
+
+### Frontend checks
+
+```bash
+cd frontend
 pnpm install --frozen-lockfile
 pnpm run lint
 pnpm run build
 ```
 
-The backend test suite covers API behavior, cache semantics, single-flight concurrency, model validation, scraper parsing, and Myntra relevance filtering. The frontend checks cover ESLint, TypeScript validation, and the Next.js production build.
+The frontend verification covers ESLint, TypeScript validity through the production build, responsive results layout, session persistence, image fallback behavior, and sticky search interaction.
 
 ---
 
-## Contributing
+## 🏷 GitHub About Settings
 
-1. Fork and create a feature branch.
-2. Install dev dependencies: `pip install -r requirements.txt -r requirements-dev.txt`
-3. Make changes. Add or update tests.
-4. Run the backend test suite with `pytest` and the frontend checks with `pnpm run lint && pnpm run build` before pushing.
-5. Open a PR against `main` and include the verification results in the PR description.
+Use these values in **GitHub → Settings → General → About**:
 
-### Adding a new marketplace scraper
+| Field | Recommended value |
+|---|---|
+| **Short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with grounded AI buying recommendations. |
+| **Website** | `https://ai-shopping-agent-theta.vercel.app` |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `gemini`, `amazon`, `flipkart`, `meesho`, `myntra` |
+| **Social preview headline** | Shop less. Choose better. |
+| **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
 
-1. Create `backend/scrapers/yoursite.py` extending `BaseScraper`.
-2. Implement `build_search_url(query)` and `parse(html) → list[dict]`.
-3. Add the new source to `models.py` `Source` enum.
-4. Register it in `services/aggregator.py` `_SCRAPERS` list.
-5. Add a canary query to `services/health_monitor.py` `_CANARY_QUERIES`.
-6. Add parser tests to `tests/test_scrapers.py`.
+Do not list eBay in the About text or topics until it is connected to the active aggregator and frontend.
 
 ---
 
-## What this deliberately does not do
+## 📄 License
 
-- **No mock/sample data** — all results are real scrapes or real API calls.
-- **No Amazon PA-API** — requires an approved affiliate account with sales history. A future upgrade path if you get approved.
-- **No attempt to circumvent anti-bot measures** beyond what ScraperAPI provides — respect each site's Terms of Service.
-- **No user accounts or saved searches** — this is a stateless search tool.
+No license file is currently included in the repository. Add an explicit license before redistributing the project publicly.
+
+---
+
+## ⚠️ Data and Marketplace Disclaimer
+
+Marketplace prices, availability, delivery estimates, and product pages can change quickly. Always verify the final details on the retailer’s website before purchasing. The project is a comparison and recommendation tool, not a seller or payment processor.
