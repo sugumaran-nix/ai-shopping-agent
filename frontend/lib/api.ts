@@ -131,12 +131,14 @@ export const SOURCE_META: Record<Source, {
 export interface KeyStatus {
   scraping: { available: boolean; source: string; error: string | null }
   ai: { available: boolean; source: string; error: string | null }
+  alternative_ai: { available: boolean; source: string; error: string | null }
 }
 
-export async function validateKeys(scraperKey?: string, geminiKey?: string): Promise<KeyStatus> {
+export async function validateKeys(scraperKey?: string, geminiKey?: string, openrouterKey?: string): Promise<KeyStatus> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
   if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+  if (openrouterKey) headers['X-OpenRouter-Key'] = openrouterKey
 
   try {
     const res = await fetch(`${BASE_URL}/api/v1/validate-keys`, {
@@ -155,11 +157,13 @@ export async function searchWithKeys(
   query: string,
   scraperKey?: string,
   geminiKey?: string,
+  openrouterKey?: string,
 ): Promise<SearchResponse> {
   const url = `${BASE_URL}/api/v1/search?q=${encodeURIComponent(query.trim())}`
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
   if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+  if (openrouterKey) headers['X-OpenRouter-Key'] = openrouterKey
 
   let res: Response
   try {

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # ── Required ───────────────────────────────────────────────────────────
     scraperapi_key: str = ""
     gemini_api_key: str = ""
+    openrouter_api_key: str = ""
 
     # ── Optional ───────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
     # ── AI ─────────────────────────────────────────────────────────────────
     # Use the live-tested alias with broad availability for current user keys.
     gemini_model: str = "gemini-flash-latest"
+    openrouter_model: str = "openrouter/free"
     ai_max_products_per_source: int = 10
     ai_request_timeout_seconds: int = 30
 

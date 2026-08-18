@@ -144,7 +144,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const storedKeys = getStoredKeys()
-    validateKeys(storedKeys.scraperapi || undefined, storedKeys.gemini || undefined)
+      validateKeys(storedKeys.scraperapi || undefined, storedKeys.gemini || undefined, storedKeys.openrouter || undefined)
       .then(status => {
         if (status.scraping.available) setAppState(storedKeys.scraperapi ? { mode: 'user-keys-set' } : { mode: 'ready' })
         else if (storedKeys.scraperapi) setAppState({ mode: 'needs-keys', error: 'Your saved ScraperAPI key is no longer valid. Please enter a new one.' })
@@ -155,7 +155,7 @@ export default function HomePage() {
 
   const getKeys = () => {
     const stored = getStoredKeys()
-    return { scraperKey: stored.scraperapi, geminiKey: stored.gemini }
+    return { scraperKey: stored.scraperapi, geminiKey: stored.gemini, openrouterKey: stored.openrouter }
   }
 
   const handleSearch = useCallback(async (q: string) => {
@@ -163,8 +163,8 @@ export default function HomePage() {
     setPhase({ name: 'loading' })
     setShowKeySetup(false)
     try {
-      const { scraperKey, geminiKey } = getKeys()
-      const data = await searchWithKeys(q, scraperKey || undefined, geminiKey || undefined)
+      const { scraperKey, geminiKey, openrouterKey } = getKeys()
+      const data = await searchWithKeys(q, scraperKey || undefined, geminiKey || undefined, openrouterKey || undefined)
       setPhase({ name: 'done', data })
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
@@ -173,8 +173,8 @@ export default function HomePage() {
     }
   }, [])
 
-  const handleKeysReady = useCallback((scraperKey: string, geminiKey: string) => {
-    saveKeys(scraperKey, geminiKey)
+  const handleKeysReady = useCallback((scraperKey: string, geminiKey: string, openrouterKey: string) => {
+    saveKeys(scraperKey, geminiKey, openrouterKey)
     setAppState({ mode: 'user-keys-set' })
     setShowKeySetup(false)
     if (query.trim().length >= 2) handleSearch(query)
@@ -192,11 +192,11 @@ export default function HomePage() {
 
   if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Preparing your search</p></div></div>
 
-  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5"><section className="mx-auto max-w-2xl text-center"><div className="mb-3 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">Private setup</span></div><h1 className="font-display text-4xl leading-[0.92] text-[#171a16] sm:text-6xl">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#73786f]">Add free keys to unlock live marketplace results and grounded recommendations.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} initialError={appState.error} /></div>
+  if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5"><section className="mx-auto max-w-2xl text-center"><div className="mb-3 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">Private setup</span></div><h1 className="font-display text-4xl leading-[0.92] text-[#171a16] sm:text-6xl">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#73786f]">Add free keys to unlock live marketplace results and grounded recommendations.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} needsOpenRouter={true} initialError={appState.error} /></div>
 
   return (
     <ErrorBoundary>
-      {showKeySetup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171a16]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-lg"><button onClick={() => setShowKeySetup(false)} className="focus-ring absolute -right-2 -top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#c9f36b] text-[#171a16] shadow-xl transition hover:rotate-90" aria-label="Close"><X className="h-4 w-4" /></button><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} /></div></div>}
+      {showKeySetup && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171a16]/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-lg"><button onClick={() => setShowKeySetup(false)} className="focus-ring absolute -right-2 -top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#c9f36b] text-[#171a16] shadow-xl transition hover:rotate-90" aria-label="Close"><X className="h-4 w-4" /></button><ApiKeySetup onKeysReady={handleKeysReady} needsScraper={true} needsGemini={true} needsOpenRouter={true} /></div></div>}
 
       <div className="space-y-10 sm:space-y-14">
         {phase.name === 'idle' && <>
@@ -211,7 +211,7 @@ export default function HomePage() {
 
         {phase.name === 'loading' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={true} onNewSearch={handleNewSearch} /><LoadingState /></div>}
         {phase.name === 'error' && <div className="space-y-2"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><ErrorState error={phase.error} onRetry={() => handleSearch(query)} onChangeKeys={handleChangeKeys} /></div>}
-        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} />{topPicks.length > 0 && <TopPicksCard products={topPicks} query={phase.data.query} />}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
+        {phase.name === 'done' && <div className="animate-content-reveal space-y-5"><ResultsSearchHeader query={query} onChange={setQuery} onSearch={handleSearch} loading={false} onNewSearch={handleNewSearch} /><SummaryBar data={phase.data} onRefresh={() => handleSearch(query)} onChangeKeys={handleChangeKeys} />{topPicks.length > 0 && <TopPicksCard products={topPicks} query={phase.data.query} />}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[...phase.data.results].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]).map(result => <SourceSection key={result.source} result={result} lowestProduct={lowestProduct} />)}</div><AIRecommendation recommendation={phase.data.ai_recommendation} error={phase.data.ai_error} onRetry={() => handleSearch(query)} />{phase.data.request_id && <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[#a6aa9f]" title="Include this ID when reporting issues">Request ID: <span className="select-all">{phase.data.request_id}</span></p>}</div>}
       </div>
     </ErrorBoundary>
   )

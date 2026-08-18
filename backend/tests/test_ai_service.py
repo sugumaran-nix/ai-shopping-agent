@@ -49,6 +49,7 @@ def product_result():
 
 @pytest.mark.asyncio
 async def test_extracts_text_from_multiple_gemini_parts(monkeypatch, product_result):
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
     response = FakeResponse({
         "candidates": [{"content": {"parts": [
             {"thought": True, "text": "internal reasoning"},
@@ -68,6 +69,7 @@ async def test_extracts_text_from_multiple_gemini_parts(monkeypatch, product_res
 
 @pytest.mark.asyncio
 async def test_handles_gemini_blocked_response(monkeypatch, product_result):
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
     response = FakeResponse({"promptFeedback": {"blockReason": "SAFETY"}})
     monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FakeClient(response))
 
@@ -107,6 +109,7 @@ async def test_returns_data_summary_without_gemini_key(monkeypatch, product_resu
 
 @pytest.mark.asyncio
 async def test_retries_and_falls_back_when_gemini_is_busy(monkeypatch, product_result):
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
     busy = FakeResponse({})
     busy.status_code = 503
     monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: SequenceClient([busy, busy]))
@@ -122,3 +125,66 @@ async def test_retries_and_falls_back_when_gemini_is_busy(monkeypatch, product_r
 
 async def _immediate_sleep():
     return None
+
+
+@pytest.mark.asyncio
+async def test_uses_cached_recommendation(monkeypatch, product_result):
+    class CachedEntry:
+        data = "Cached recommendation"
+
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: CachedEntry())
+
+    class FailingClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, *args, **kwargs):
+            raise AssertionError("provider should not be called on a cache hit")
+
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FailingClient())
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse", [product_result], user_gemini_key="test-key"
+    )
+
+    assert recommendation == "Cached recommendation"
+    assert error is None
+
+
+def test_extracts_openrouter_chat_content():
+    text, error = ai_service._extract_openrouter_text({
+        "choices": [{"message": {"content": "Use the lower-priced option."}}]
+    })
+
+    assert text == "Use the lower-priced option."
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_uses_openrouter_after_gemini_busy(monkeypatch, product_result):
+    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ai_service.asyncio, "sleep", lambda *args, **kwargs: _immediate_sleep())
+
+    busy = FakeResponse({})
+    busy.status_code = 503
+    openrouter_response = FakeResponse({
+        "choices": [{"message": {"content": "Use the lower-priced option."}}]
+    })
+    clients = iter([
+        SequenceClient([busy, busy]),
+        FakeClient(openrouter_response),
+    ])
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: next(clients))
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse",
+        [product_result],
+        user_gemini_key="test-gemini-key",
+        user_openrouter_key="test-openrouter-key",
+    )
+
+    assert recommendation == "Use the lower-priced option."
+    assert error is None

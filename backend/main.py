@@ -37,6 +37,10 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# httpx logs complete request URLs at INFO, which would expose provider query
+# parameters such as api_key. Application logs retain our own safe summaries.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 try:
     from pythonjsonlogger import jsonlogger
@@ -182,11 +186,13 @@ async def search(
 
     # Accept user-supplied keys from request headers
     user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
+    user_openrouter_key = request.headers.get("X-OpenRouter-Key", "").strip() or None
     user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
 
     result = await run_search(
         query,
         user_gemini_key=user_gemini_key,
+        user_openrouter_key=user_openrouter_key,
         user_scraperapi_key=user_scraperapi_key,
     )
     result.request_id = getattr(request.state, "request_id", None)
@@ -249,9 +255,11 @@ async def validate_keys(request: Request):
     Used by the frontend to show the API key setup screen when needed.
     """
     user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
+    user_openrouter_key = request.headers.get("X-OpenRouter-Key", "").strip() or None
     user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
 
     gemini_key = user_gemini_key or settings.gemini_api_key
+    openrouter_key = user_openrouter_key or settings.openrouter_api_key
     scraper_key = user_scraperapi_key or settings.scraperapi_key
 
     # Quick test of Gemini key
@@ -270,6 +278,27 @@ async def validate_keys(request: Request):
             gemini_error = "Could not reach the key verification service"
     else:
         gemini_error = "No key provided"
+
+    # Lightweight OpenRouter check so the optional free-model alternative is actionable.
+    openrouter_ok = False
+    openrouter_error = None
+    if openrouter_key:
+        try:
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=8) as client:
+                response = await client.get(
+                    "https://openrouter.ai/api/v1/models",
+                    headers={"Authorization": f"Bearer {openrouter_key}"},
+                )
+            openrouter_ok = response.status_code == 200
+            if not openrouter_ok:
+                openrouter_error = "Invalid or unavailable key" if response.status_code in (400, 401, 403) else "Could not verify this key"
+        except _httpx.TimeoutException:
+            openrouter_error = "Key verification timed out"
+        except Exception:  # noqa: BLE001
+            openrouter_error = "Could not reach the key verification service"
+    else:
+        openrouter_error = "No key provided"
 
     # Lightweight real ScraperAPI check so a present-but-invalid key is not reported as working.
     scraper_ok = False
@@ -306,5 +335,10 @@ async def validate_keys(request: Request):
             "available": gemini_ok,
             "source": "user" if user_gemini_key else ("server" if settings.gemini_api_key else "none"),
             "error": gemini_error,
+        },
+        "alternative_ai": {
+            "available": openrouter_ok,
+            "source": "user" if user_openrouter_key else ("server" if settings.openrouter_api_key else "none"),
+            "error": None if openrouter_ok else openrouter_error,
         },
     }

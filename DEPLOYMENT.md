@@ -11,7 +11,7 @@ Before anything else, get your API keys. You'll need them for every deployment p
 | Key | Where to get it | Free tier? |
 |---|---|---|
 | `SCRAPERAPI_KEY` | [scraperapi.com](https://www.scraperapi.com/) | Yes — 1,000 credits/month |
-| `GEMINI_API_KEY` | [makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey) | Yes |
+| `GEMINI_API_KEY` | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | No |
 | `EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` | [developer.ebay.com/my/keys](https://developer.ebay.com/my/keys) | Yes — optional |
 
 eBay is optional. The app works without it and will simply skip that source.
@@ -43,6 +43,7 @@ Open `backend/.env` and fill in at minimum:
 ```
 SCRAPERAPI_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
+OPENROUTER_API_KEY=your_optional_openrouter_key
 ```
 
 ```bash
@@ -108,7 +109,7 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
 | `SCRAPERAPI_KEY` | ✅ | — | Without this, all scraping fails |
-| `GEMINI_API_KEY` | ✅ | — | Without this, AI recommendations are disabled |
+| `GEMINI_API_KEY` | — | — | Optional; without it the app shows a live-data summary |
 | `EBAY_CLIENT_ID` | — | — | Leave blank to disable eBay source |
 | `EBAY_CLIENT_SECRET` | — | — | Leave blank to disable eBay source |
 | `ALLOWED_ORIGINS` | ✅ in prod | `http://localhost:3000` | Your Vercel URL — prevents cross-origin abuse |
@@ -120,7 +121,9 @@ Full list with descriptions. Set these in Render's dashboard (never commit real 
 | `REQUEST_TIMEOUT_SECONDS` | — | `15` | ScraperAPI per-request timeout |
 | `MAX_RETRIES` | — | `2` | Retry attempts per request |
 | `CONCURRENT_SCRAPE_LIMIT` | — | `4` | Max parallel scrapers (keep ≤ 4 on free tier) |
-| `GEMINI_MODEL` | — | `gemini-2.0-flash` | Switch to `gemini-1.5-pro` for higher quality |
+| `GEMINI_MODEL` | — | `gemini-flash-latest` | Transient failures retry; the app falls back to a live-data summary |
+| `OPENROUTER_API_KEY` | — | — | Optional free-model fallback key |
+| `OPENROUTER_MODEL` | — | `openrouter/free` | OpenRouter free-model router alias |
 | `AI_MAX_PRODUCTS_PER_SOURCE` | — | `10` | Products sent to AI per source |
 | `AI_REQUEST_TIMEOUT_SECONDS` | — | `30` | Gemini request timeout |
 
@@ -133,7 +136,8 @@ Run through this after every production deploy:
 - [ ] `GET /api/ping` returns `{"status":"ok"}`
 - [ ] `GET /api/v1/health` — at least 2 sources show `healthy: true`
 - [ ] Search for "wireless mouse" — results appear with prices
-- [ ] AI recommendation appears (not just `ai_error`)
+- [ ] AI recommendation appears; if Gemini is busy, confirm the labeled live-data summary appears instead of an empty card
+- [ ] If configured, OpenRouter fallback validation reports `Working`
 - [ ] Results include a mix of `fresh` and possibly `stale` statuses
 - [ ] Frontend loads at your Vercel URL
 - [ ] Frontend CORS error does **not** appear in browser console

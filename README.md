@@ -90,7 +90,8 @@ The frontend is intentionally careful about wording: user-facing copy describes 
 - Python 3.12+
 - Node 20+ (for frontend)
 - [ScraperAPI key](https://www.scraperapi.com/) — free tier available
-- [Google Gemini API key](https://makersuite.google.com/app/apikey) — free
+- [Google Gemini API key](https://aistudio.google.com/app/apikey) — optional primary AI provider
+- [OpenRouter API key](https://openrouter.ai/keys) — optional free-model fallback
 - [eBay developer credentials](https://developer.ebay.com/my/keys) — optional
 
 ### Backend
@@ -101,7 +102,7 @@ python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activat
 pip install -r requirements.txt
 
 cp .env.example .env
-# Edit .env — fill in SCRAPERAPI_KEY and GEMINI_API_KEY at minimum
+# Edit .env — fill in SCRAPERAPI_KEY; Gemini/OpenRouter keys are optional
 
 uvicorn main:app --reload
 ```
@@ -146,13 +147,15 @@ All variables are documented in `backend/.env.example`. Key ones:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SCRAPERAPI_KEY` | ✅ | — | ScraperAPI proxy key |
-| `GEMINI_API_KEY` | ✅ | — | Google Gemini API key |
+| `GEMINI_API_KEY` | — | — | Optional Google Gemini API key; the app falls back to live-data summaries when unavailable |
 | `EBAY_CLIENT_ID` | — | — | eBay app client ID (enables eBay source) |
 | `EBAY_CLIENT_SECRET` | — | — | eBay app client secret |
 | `ALLOWED_ORIGINS` | — | `http://localhost:3000` | Comma-separated CORS origins |
 | `CACHE_TTL_SECONDS` | — | `1800` | Fresh cache window (30 min) |
 | `STALE_SERVE_TTL_SECONDS` | — | `21600` | Stale fallback window (6 hr) |
-| `GEMINI_MODEL` | — | `gemini-2.0-flash` | Gemini model name |
+| `GEMINI_MODEL` | — | `gemini-flash-latest` | Gemini model alias; transient failures retry and fall back to a live-data summary |
+| `OPENROUTER_API_KEY` | — | — | Optional OpenRouter key for free-model fallback |
+| `OPENROUTER_MODEL` | — | `openrouter/free` | OpenRouter free-model router alias |
 | `ENVIRONMENT` | — | `development` | `development` or `production` |
 | `LOG_LEVEL` | — | `INFO` | Python log level |
 
@@ -287,7 +290,7 @@ bash deploy.sh
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | All sources return `unavailable` | `SCRAPERAPI_KEY` missing or invalid | Check `.env`, verify key at scraperapi.com dashboard |
-| `AI analysis temporarily unavailable` | `GEMINI_API_KEY` missing or quota exceeded | Check `.env` and Gemini dashboard |
+| `AI analysis temporarily unavailable` | Gemini quota/capacity issue | The app retries, then shows a live-data summary; optionally add an OpenRouter key |
 | One source always `unavailable` | Site layout changed, selectors broken | Check `/api/v1/health`, update `parse()` in that scraper |
 | `stale` results across all sources | Network issue or ScraperAPI quota exhausted | Check ScraperAPI dashboard for credit usage |
 | `0 valid products` warning in logs | Parse succeeded but all products failed Pydantic validation | Run the scraper's `parse()` manually against a saved page, check field mapping |
