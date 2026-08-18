@@ -11,9 +11,7 @@ Before anything else, get a ScraperAPI key. It is required for live marketplace 
 | Key | Where to get it | Free tier? |
 |---|---|---|
 | `SCRAPERAPI_KEY` | [scraperapi.com](https://www.scraperapi.com/) | Yes — 1,000 credits/month |
-| `EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` | [developer.ebay.com/my/keys](https://developer.ebay.com/my/keys) | Yes — optional |
 
-eBay is optional. The app works without it and will simply skip that source.
 
 ---
 
@@ -33,6 +31,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
+# Install a local Chromium binary for browser fallbacks
+python -m playwright install chromium
 
 # 4. Configure environment
 cp .env.example .env
@@ -54,7 +54,7 @@ curl http://localhost:8000/api/ping
 # → {"status":"ok","version":"2.1.0"}
 
 curl "http://localhost:8000/api/v1/search?q=wireless+mouse"
-# → Full JSON response with products from all sources
+# → Full JSON response with products from all five sources
 ```
 
 Interactive API docs: http://localhost:8000/api/docs
@@ -89,7 +89,7 @@ docker compose up --build
 - Backend: http://localhost:8000
 - Frontend: http://localhost:3000
 
-The backend cache persists in a Docker named volume (`backend_cache`) so scrape results survive container restarts.
+The backend cache persists in a Docker named volume (`backend_cache`) so scrape results survive container restarts. The backend image also installs Chromium once; Meesho, Myntra, and JioMart reuse one headless browser process only after their direct HTTP attempts fail.
 
 To tear everything down:
 ```bash
@@ -101,13 +101,11 @@ docker compose down -v   # also wipe the cache volume
 
 ## 3. Environment Variables Reference
 
-Full list with descriptions. Set these in Render's dashboard (never commit real values).
+Full list with descriptions. Set these in Render's dashboard (never commit real values). The Render blueprint uses `backend/Dockerfile`, which installs Chromium and runs the shared Playwright fallback as a single worker process.
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
 | `SCRAPERAPI_KEY` | ✅ | — | Without this, all scraping fails |
-| `EBAY_CLIENT_ID` | — | — | Leave blank to disable eBay source |
-| `EBAY_CLIENT_SECRET` | — | — | Leave blank to disable eBay source |
 | `ALLOWED_ORIGINS` | ✅ in prod | `http://localhost:3000` | Your Vercel URL — prevents cross-origin abuse |
 | `ENVIRONMENT` | — | `development` | Set to `production` on Render |
 | `LOG_LEVEL` | — | `INFO` | `DEBUG` for more detail, `WARNING` for quieter logs |
@@ -162,7 +160,7 @@ Or use [UptimeRobot](https://uptimerobot.com) (free) to:
   { "source": "flipkart", "healthy": true,  "products_found": 6 },
   { "source": "meesho",   "healthy": false, "products_found": 0, "error": "parsed 0 valid products" },
   { "source": "myntra",   "healthy": true,  "products_found": 5 },
-  { "source": "ebay",     "healthy": true,  "products_found": 10 }
+  { "source": "jiomart",  "healthy": true,  "products_found": 4 }
 ]
 ```
 
@@ -203,12 +201,12 @@ A healthy deployment should have `hit_rate_pct > 70%` after a few hours of traff
 | Recommendation summary unavailable | No valid products returned from any source | Check `/api/v1/health`, ScraperAPI credentials, and source availability |
 | One source always `unavailable` | That site's HTML changed | Run `/api/v1/health`, update that scraper's `parse()` |
 | Frontend CORS error in browser | `ALLOWED_ORIGINS` not set to your Vercel URL | Update Render env var → redeploy |
-| Render deploy fails at build | Wrong Python version | Ensure `runtime.txt` says `3.12.3` |
+| Render deploy fails at build | Docker or Chromium installation failed | Inspect the Render image-build logs; confirm `backend/Dockerfile` and the Playwright dependencies are present |
 | `0 valid products` in logs | Parse succeeded but all items fail Pydantic validation | Run `parse()` against a saved HTML page. Check field names match the model |
 | Stale results everywhere | ScraperAPI credits exhausted | Check [ScraperAPI dashboard](https://dashboard.scraperapi.com/) |
 | Slow first response | Render free tier spins down after inactivity | Upgrade to a paid Render instance, or add a UptimeRobot ping every 14 min |
 | CI not running | GitHub Actions disabled | Repo → Settings → Actions → Allow all actions |
-| `uvicorn: command not found` on Render | Build step failed silently | Check Render build logs — likely a package install error |
+| Browser fallback unavailable | Chromium is missing or the shared browser could not start | Check Docker build logs for `playwright install --with-deps chromium`; set `PLAYWRIGHT_EXECUTABLE_PATH` only when using a custom browser binary |
 
 ---
 

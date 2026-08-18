@@ -26,3 +26,7 @@ python-json-logger==2.0.7
 
 # ── Optional persistent cache backend ─────────────────────────────────────────
 redis==5.0.8
+
+# ── Browser fallback ───────────────────────────────────────────────────────────
+playwright==1.62.0
+playwright-stealth==2.0.3

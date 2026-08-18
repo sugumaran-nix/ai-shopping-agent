@@ -11,6 +11,7 @@ from scrapers.amazon import AmazonScraper
 from scrapers.flipkart import FlipkartScraper
 from scrapers.meesho import MeeshoScraper
 from scrapers.myntra import MyntraScraper
+from scrapers.jiomart import JiomartScraper
 from services.ai_service import generate_recommendation
 
 logger = logging.getLogger("aggregator")
@@ -21,6 +22,7 @@ _SCRAPERS = [
     FlipkartScraper(),
     MeeshoScraper(),
     MyntraScraper(),
+    JiomartScraper(),
 ]
 
 

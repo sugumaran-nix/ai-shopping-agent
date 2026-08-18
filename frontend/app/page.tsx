@@ -34,7 +34,7 @@ const FEATURES = [
   { Icon: SlidersHorizontal, kicker: '03 / Control', title: 'Your shortlist', body: 'Sort each source by price, rating, or best match without losing context.' },
 ]
 
-const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra']
+const SOURCES = ['Amazon', 'Flipkart', 'Meesho', 'Myntra', 'JioMart']
 
 function LoadingState() {
   return (

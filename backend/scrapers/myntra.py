@@ -17,6 +17,7 @@ import httpx
 
 from config import get_settings
 from models import Product, ScrapeStatus, Source, SourceResult
+from services.browser_manager import render_page_html
 from utils.headers import extract_image_url, normalize_image_url
 
 logger = logging.getLogger("scraper.myntra")
@@ -91,7 +92,23 @@ class MyntraScraper:
         except Exception as exc:  # noqa: BLE001
             logger.debug("Myntra internal API failed: %s", exc)
 
-        # Try 2: ScraperAPI rendered HTML. The ultra_premium option is plan-dependent
+        # Try 2: shared headless browser with a source-specific product container wait.
+        try:
+            from urllib.parse import quote_plus
+            html = await render_page_html(
+                f"{_BASE}/search?q={quote_plus(query.strip())}",
+                wait_for_selectors=("li.product-base", "li[class*='product-base']", "body"),
+                timeout_ms=45_000,
+            )
+            products = self._parse_html(html, query=query)
+            relevant = self._filter_relevant_products(products, query)
+            if relevant:
+                logger.debug("Myntra: %d relevant products from Playwright", len(relevant))
+                return relevant
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Myntra Playwright fallback failed: %s", exc)
+
+        # Try 3: ScraperAPI rendered HTML. The ultra_premium option is plan-dependent
         # and returns 403 for otherwise valid keys, so keep the request portable.
         if scraperapi_key or settings.scraperapi_key:
             try:

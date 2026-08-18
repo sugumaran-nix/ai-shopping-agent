@@ -28,6 +28,7 @@ from cache import get_stats as cache_stats
 from config import get_settings
 from models import ErrorDetail, ErrorResponse, HealthCheckResult, SearchResponse
 from services.aggregator import run_search
+from services.browser_manager import close_browser
 from services.health_monitor import run_health_check
 
 settings = get_settings()
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
         "configured" if settings.scraperapi_key else "MISSING",
     )
     yield
+    await close_browser()
     logger.info("AI Shopping Agent shutting down")
 
 
@@ -72,7 +74,7 @@ app = FastAPI(
     title="AI Shopping Agent API",
     version="2.2.0",
     description=(
-        "Compares products across Amazon, Flipkart, Meesho, and Myntra. "
+        "Compares products across Amazon, Flipkart, Meesho, Myntra, and JioMart. "
         "Results are explicitly labeled fresh, stale, or unavailable. "
         "Recommendations are calculated strictly from the real data returned — "
         "no invented prices or products."

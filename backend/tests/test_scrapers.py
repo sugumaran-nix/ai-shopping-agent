@@ -298,3 +298,55 @@ class TestMyntraRelevance:
         filtered = MyntraScraper._filter_relevant_products(products, "poco c51 phone case")
 
         assert [product.title for product in filtered] == ["SPRIG Poco C51 TPU Matte Back Cover"]
+
+
+class TestMeeshoParser:
+    def test_parses_catalog_list_data(self):
+        from scrapers.meesho import MeeshoScraper
+
+        data = {
+            "props": {"pageProps": {"data": {"catalog_list_data": [
+                {
+                    "name": "Poco C51 Phone Case",
+                    "min_product_price": "₹199",
+                    "slug": "poco-c51-phone-case/1",
+                    "rating": 4.2,
+                    "rating_count": 18,
+                    "cover_image": "/images/case.jpg",
+                }
+            ]}}}
+        }
+
+        products = MeeshoScraper._from_next_data(data)
+
+        assert len(products) == 1
+        assert products[0]["title"] == "Poco C51 Phone Case"
+        assert products[0]["price"] == 199
+        assert products[0]["image_url"] == "https://www.meesho.com/images/case.jpg"
+
+
+class TestJiomartParser:
+    def test_parses_product_card(self):
+        from scrapers.jiomart import JiomartScraper
+
+        html = """
+        <a href="/p/mobile/poco-c51-case/1" class="product-card">
+          <img data-src="//cdn.jio.test/case.jpg" />
+          <h3 class="product-title">Poco C51 Phone Case</h3>
+          <span>₹249</span>
+          <span>4.4 (32 reviews)</span>
+        </a>
+        """
+
+        products = JiomartScraper()._parse_html(html)
+
+        assert len(products) == 1
+        assert products[0]["title"] == "Poco C51 Phone Case"
+        assert products[0]["price"] == 249
+        assert products[0]["url"] == "https://www.jiomart.com/p/mobile/poco-c51-case/1"
+        assert products[0]["image_url"] == "https://cdn.jio.test/case.jpg"
+
+    def test_empty_page_returns_no_products(self):
+        from scrapers.jiomart import JiomartScraper
+
+        assert JiomartScraper()._parse_html("<html><body>We couldn't find the page</body></html>") == []

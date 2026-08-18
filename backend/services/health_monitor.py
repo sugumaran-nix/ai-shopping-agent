@@ -10,6 +10,7 @@ from scrapers.amazon import AmazonScraper
 from scrapers.flipkart import FlipkartScraper
 from scrapers.meesho import MeeshoScraper
 from scrapers.myntra import MyntraScraper
+from scrapers.jiomart import JiomartScraper
 
 logger = logging.getLogger("health")
 
@@ -18,6 +19,7 @@ _SCRAPERS = [
     (FlipkartScraper(), "wireless mouse"),
     (MeeshoScraper(),   "kurti"),
     (MyntraScraper(),   "sneakers"),
+    (JiomartScraper(),   "wireless mouse"),
 ]
 
 

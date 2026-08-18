@@ -22,6 +22,7 @@ class Source(str, Enum):
     FLIPKART = "flipkart"
     MEESHO = "meesho"
     MYNTRA = "myntra"
+    JIOMART = "jiomart"
 
 
 class ScrapeStatus(str, Enum):

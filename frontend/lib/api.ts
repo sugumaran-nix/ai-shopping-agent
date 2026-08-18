@@ -3,7 +3,7 @@
  */
 
 export type ScrapeStatus = 'fresh' | 'stale' | 'unavailable'
-export type Source = 'amazon' | 'flipkart' | 'meesho' | 'myntra'
+export type Source = 'amazon' | 'flipkart' | 'meesho' | 'myntra' | 'jiomart'
 export type SortKey = 'default' | 'price_asc' | 'price_desc' | 'rating'
 
 export interface Product {
@@ -127,6 +127,7 @@ export const SOURCE_META: Record<Source, {
   flipkart: { label: 'Flipkart', color: 'bg-[#f7faed] border-[#d7e4b5]', headerColor: 'bg-[#eff7d9]', accent: 'text-[#64832b]' },
   meesho:   { label: 'Meesho',   color: 'bg-pink-50   border-pink-200',   headerColor: 'bg-pink-100',   accent: 'text-pink-800'   },
   myntra:   { label: 'Myntra',   color: 'bg-rose-50   border-rose-200',   headerColor: 'bg-rose-100',   accent: 'text-rose-800'   },
+  jiomart:  { label: 'JioMart',  color: 'bg-[#f4f8e9] border-[#d5e2b0]', headerColor: 'bg-[#ebf5cf]', accent: 'text-[#55751f]' },
 }
 
 

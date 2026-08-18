@@ -1,6 +1,6 @@
 # AI Shopping Agent — Live Marketplace Price Comparison
 
-> Search once. Compare four marketplaces. Choose with confidence.
+> Search once. Compare five marketplaces. Choose with confidence.
 
 ![Next.js](https://img.shields.io/badge/Next.js-171a16?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-35530a?style=for-the-badge&logo=typescript&logoColor=white)
@@ -25,7 +25,7 @@ Replace the line below with a recorded product-search GIF when available.
 
 ## ✨ Features
 
-- **Four live marketplaces** — Compare Amazon, Flipkart, Meesho, and Myntra in one focused results workspace.
+- **Five live marketplaces** — Compare Amazon, Flipkart, Meesho, Myntra, and JioMart in one focused results workspace.
 - **Top 10 ranked shortlist** — Overall best ranking uses relevance, rating, review confidence, and price context rather than simply choosing the cheapest product.
 - **Per-marketplace filters** — Sort each source by best match, low price, high price, or top rating without losing comparison context.
 - **Transparent weighted recommendations** — Every available product receives a visible score from normalized price (40%), rating (40%), and review count (20%), with the top three returned in a deterministic summary.
@@ -182,7 +182,7 @@ User enters a query
         ↓
 Frontend sends session-only API keys as request headers
         ↓
-FastAPI aggregator runs Amazon, Flipkart, Meesho and Myntra concurrently
+FastAPI aggregator runs Amazon, Flipkart, Meesho, Myntra, and JioMart concurrently
         ↓
 Each scraper fetches → parses → validates → caches → labels its result
         ↓
@@ -272,13 +272,11 @@ Use these values in **GitHub → Settings → General → About**:
 
 | Field | Recommended value |
 |---|---|
-| **Short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with transparent weighted buying recommendations. |
+| **Short description** | Compare live prices across Amazon, Flipkart, Meesho, Myntra, and JioMart with transparent weighted buying recommendations. |
 | **Website** | `https://ai-shopping-agent-theta.vercel.app` |
-| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `amazon`, `flipkart`, `meesho`, `myntra` |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `amazon`, `flipkart`, `meesho`, `myntra`, `jiomart` |
 | **Social preview headline** | Shop less. Choose better. |
 | **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
-
-Do not list eBay in the About text or topics until it is connected to the active aggregator and frontend.
 
 ---
 

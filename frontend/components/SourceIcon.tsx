@@ -7,6 +7,7 @@ import {
   ShoppingCart,  // Flipkart
   Shirt,         // Meesho
   Footprints,    // Myntra
+  Store,         // JioMart
 } from 'lucide-react'
 import type { Source } from '@/lib/api'
 
@@ -15,6 +16,7 @@ const ICONS: Record<Source, React.ElementType> = {
   flipkart: ShoppingCart,
   meesho:   Shirt,
   myntra:   Footprints,
+  jiomart:  Store,
 }
 
 export function SourceIcon({ source, className = 'w-4 h-4' }: { source: Source; className?: string }) {

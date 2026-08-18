@@ -8,6 +8,9 @@ WORKDIR /app
 # Install deps first (cached layer)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Install Chromium once at image build time; the app reuses one browser process.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN python -m playwright install --with-deps chromium && chmod -R 755 /ms-playwright
 
 # Copy source
 COPY --chown=app:app . .
