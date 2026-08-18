@@ -248,3 +248,35 @@ class TestMyntraRelevance:
 
         product = Product(source=Source.MYNTRA, title="Cotton Shirt", price=599, url="https://myntra.test/shirt")
         assert MyntraScraper._filter_relevant_products([product], "a") == [product]
+
+
+    def test_matches_case_cover_aliases_for_model_query(self):
+        from models import Product, Source
+        from scrapers.myntra import MyntraScraper
+
+        products = [
+            Product(source=Source.MYNTRA, title="Poco C51 Mobile Back Cover", price=199, url="https://myntra.test/mobile-cover"),
+            Product(source=Source.MYNTRA, title="Poco C51 Phone Pouch", price=299, url="https://myntra.test/pouch"),
+            Product(source=Source.MYNTRA, title="Cotton Shirt", price=599, url="https://myntra.test/shirt"),
+        ]
+
+        filtered = MyntraScraper._filter_relevant_products(products, "poco c51 phone case")
+
+        assert [product.title for product in filtered] == [
+            "Poco C51 Mobile Back Cover",
+            "Poco C51 Phone Pouch",
+        ]
+
+
+    def test_requires_poco_model_identity_not_just_shared_model_number(self):
+        from models import Product, Source
+        from scrapers.myntra import MyntraScraper
+
+        products = [
+            Product(source=Source.MYNTRA, title="SPRIG Realme C51 TPU Matte Back Cover", price=459, url="https://myntra.test/realme-c51"),
+            Product(source=Source.MYNTRA, title="SPRIG Poco C51 TPU Matte Back Cover", price=459, url="https://myntra.test/poco-c51"),
+        ]
+
+        filtered = MyntraScraper._filter_relevant_products(products, "poco c51 phone case")
+
+        assert [product.title for product in filtered] == ["SPRIG Poco C51 TPU Matte Back Cover"]

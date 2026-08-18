@@ -10,8 +10,8 @@ import { ProductCard } from './ProductCard'
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'default', label: 'Best match' },
-  { key: 'price_asc', label: '↑ Price' },
-  { key: 'price_desc', label: '↓ Price' },
+  { key: 'price_asc', label: 'Low price' },
+  { key: 'price_desc', label: 'High price' },
   { key: 'rating', label: 'Top rated' },
 ]
 
@@ -31,7 +31,7 @@ export function SourceSection({ result, bestProduct }: { result: SourceResult; b
       </div>
 
       <div className="p-3 sm:p-4">
-        {result.products.length > 1 && <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Sort results"><SlidersHorizontal className="mr-1 h-3.5 w-3.5 text-[#9ca399]" aria-hidden />{SORT_OPTIONS.map(opt => <button key={opt.key} onClick={() => setSort(opt.key)} aria-pressed={sort === opt.key} className={`focus-ring rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-all ${sort === opt.key ? 'border-[#b8d16f] bg-[#eff7d9] text-[#4e6d19]' : 'border-[#dfe1d8] bg-transparent text-[#858a81] hover:border-[#c7d3ac] hover:text-[#4e6d19]'}`}>{opt.label}</button>)}</div>}
+        {result.products.length > 1 && <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label={`Filter ${meta.label} results by price or rating`}><SlidersHorizontal className="mr-1 h-3.5 w-3.5 text-[#9ca399]" aria-hidden /><span className="mr-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#a0a59a]">Filter</span>{SORT_OPTIONS.map(opt => <button key={opt.key} onClick={() => setSort(opt.key)} aria-pressed={sort === opt.key} className={`focus-ring rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition-all ${sort === opt.key ? 'border-[#b8d16f] bg-[#eff7d9] text-[#4e6d19]' : 'border-[#dfe1d8] bg-transparent text-[#858a81] hover:border-[#c7d3ac] hover:text-[#4e6d19]'}`}>{opt.label}</button>)}</div>}
 
         {sorted.length > 0 ? <div className="source-products-scroll grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label={`${meta.label} product results`}>{sorted.map((product, i) => <ProductCard key={`${result.source}-${i}`} product={product} isBestPick={product === bestProduct} />)}</div> : <div className="space-y-3 py-10 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f0f1ec] text-[#a4a99f]">{result.status === 'unavailable' ? <WifiOff className="h-5 w-5" aria-hidden /> : <SearchX className="h-5 w-5" aria-hidden />}</div><p className="text-sm font-bold text-[#73786f]">{result.status === 'unavailable' ? 'Source unavailable' : 'No results found'}</p><p className="px-2 text-xs leading-relaxed text-[#9a9f95]">{friendlySourceError(result.status, result.error)}</p></div>}
       </div>

@@ -121,24 +121,40 @@ class MyntraScraper:
         return self._parse_api_response(data)
 
     async def _try_scraperapi_premium(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
-        """Fetch rendered Myntra HTML through the standard ScraperAPI plan."""
-        from urllib.parse import urlencode
-        search_url = f"{_BASE}/search?q={query.strip().replace(' ', '+')}"
-        params = {
-            "api_key": scraperapi_key or settings.scraperapi_key,
-            "url": search_url,
-            "render": "true",
-            "country_code": "in",
-        }
+        """Fetch rendered Myntra HTML, preferring the product-slug route that returns embedded results."""
+        from urllib.parse import quote, quote_plus
+
+        slug = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")
+        encoded_query = quote_plus(query.strip())
+        target_urls = [
+            f"{_BASE}/{quote(slug)}?rawQuery={encoded_query}",
+            f"{_BASE}/search?q={encoded_query}",
+        ]
+        last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=90) as client:
-            resp = await client.get("https://api.scraperapi.com/", params=params)
-            resp.raise_for_status()
-            html = resp.text
+            for target_url in target_urls:
+                params = {
+                    "api_key": scraperapi_key or settings.scraperapi_key,
+                    "url": target_url,
+                    "render": "true",
+                    "country_code": "in",
+                }
+                try:
+                    resp = await client.get("https://api.scraperapi.com/", params=params)
+                    resp.raise_for_status()
+                    html = resp.text
+                    if not html.strip():
+                        raise ValueError("Empty HTML from ScraperAPI")
+                    products = self._parse_html(html, query=query)
+                    if products:
+                        return products
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    logger.debug("Myntra ScraperAPI route failed for %s: %s", target_url, exc)
 
-        if not html.strip():
-            raise ValueError("Empty HTML from ScraperAPI")
-
-        return self._parse_html(html)
+        if last_error:
+            raise last_error
+        return []
 
     @staticmethod
     def _find_product_dicts(value) -> list[dict]:
@@ -167,7 +183,13 @@ class MyntraScraper:
 
     @staticmethod
     def _term_matches_title(term: str, title_tokens: set[str], title: str) -> bool:
-        if term in title_tokens or term in title:
+        aliases = {
+            "phone": {"phone", "mobile", "smartphone", "cell"},
+            "case": {"case", "cases", "cover", "covers", "back", "bumper", "flip", "wallet", "pouch"},
+            "cover": {"cover", "covers", "case", "cases", "back", "bumper", "flip", "wallet", "pouch"},
+        }
+        candidates = aliases.get(term, {term})
+        if any(candidate in title_tokens or candidate in title for candidate in candidates):
             return True
         singular = term[:-1] if term.endswith("s") and len(term) > 3 else term
         return singular in title_tokens or any(token.rstrip("s") == singular for token in title_tokens)
@@ -178,14 +200,18 @@ class MyntraScraper:
         if not terms:
             return products
 
+        first_model_index = next((index for index, term in enumerate(terms) if any(char.isdigit() for char in term)), None)
+        identity_terms = terms[: first_model_index + 1] if first_model_index is not None else []
+        minimum_matches = max(1, (len(terms) + 1) // 2)
         scored: list[tuple[int, int, Product]] = []
         for index, product in enumerate(products):
             title = re.sub(r"[^a-z0-9 ]+", " ", product.title.lower())
             title_tokens = set(title.split())
-            matched = sum(cls._term_matches_title(term, title_tokens, title) for term in terms)
-            if matched:
+            matched_terms = [term for term in terms if cls._term_matches_title(term, title_tokens, title)]
+            identity_matches = all(term in title_tokens for term in identity_terms)
+            if identity_matches and len(matched_terms) >= minimum_matches:
                 phrase_bonus = 2 if " ".join(terms) in title else 0
-                scored.append((matched + phrase_bonus, -index, product))
+                scored.append((len(matched_terms) + phrase_bonus, -index, product))
 
         scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
         return [product for _, _, product in scored]
@@ -230,12 +256,15 @@ class MyntraScraper:
     def _parse_api_response(self, data: dict) -> list[Product]:
         return self._products_from_items(self._find_product_dicts(data))
 
-    def _parse_html(self, html: str) -> list[Product]:
+    def _parse_html(self, html: str, query: str | None = None) -> list[Product]:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "lxml")
 
         # Myntra has used several embedded state names and formatting variants.
+        # A page can contain recommendation/product lists before the actual query
+        # list, so query-aware parsing must scan every state block before choosing.
         decoder = json.JSONDecoder()
+        fallback_products: list[Product] = []
         for script in soup.find_all("script"):
             text = script.get_text() or ""
             for marker in ("window.__myx", "window.__INITIAL_STATE__", "__PRELOADED_STATE__"):
@@ -251,7 +280,15 @@ class MyntraScraper:
                 except (TypeError, ValueError):
                     continue
                 products = self._products_from_items(self._find_product_dicts(data))
-                if products:
+                if not products:
+                    continue
+                if not fallback_products:
+                    fallback_products = products
+                if query:
+                    relevant = self._filter_relevant_products(products, query)
+                    if relevant:
+                        return relevant
+                else:
                     return products
 
         # Rendered-card fallback for ScraperAPI responses with JS executed.
@@ -283,4 +320,7 @@ class MyntraScraper:
             if product:
                 products.append(product)
 
-        return self._products_from_items([p.model_dump() for p in products])
+        parsed = self._products_from_items([p.model_dump() for p in products])
+        if parsed:
+            return self._filter_relevant_products(parsed, query) if query else parsed
+        return self._filter_relevant_products(fallback_products, query) if query else fallback_products
