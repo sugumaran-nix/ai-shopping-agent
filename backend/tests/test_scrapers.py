@@ -130,3 +130,53 @@ class TestAmazonParser:
         html = f"<html><body>{cards}</body></html>"
         results = scraper.parse(html)
         assert len(results) == 3
+
+
+class TestMyntraParser:
+    def test_parses_nested_api_payload(self):
+        from scrapers.myntra import MyntraScraper
+
+        products = MyntraScraper()._parse_api_response({"data": {"results": {"products": [
+            {
+                "brand": "Acme",
+                "product": "Cotton Kurta",
+                "discountedPrice": 799,
+                "landingPageUrl": "acme/cotton-kurta/123",
+            }
+        ]}}})
+
+        assert len(products) == 1
+        assert products[0].title == "Acme Cotton Kurta"
+        assert products[0].price == 799
+
+    def test_parses_embedded_state(self):
+        import json
+        from scrapers.myntra import MyntraScraper
+
+        state = {"searchData": {"results": {"products": [
+            {"brand": "Brand", "name": "Dress", "price": "₹1,299", "slugV2": "brand/dress/1"}
+        ]}}}
+        html = f"<html><script>window.__myx = {json.dumps(state)};</script></html>"
+
+        products = MyntraScraper()._parse_html(html)
+
+        assert len(products) == 1
+        assert products[0].price == 1299
+
+    def test_parses_rendered_product_card(self):
+        from scrapers.myntra import MyntraScraper
+
+        html = """
+        <li class="product-base">
+          <h3 class="product-brand">Brand</h3>
+          <h4 class="product-product">Shoes</h4>
+          <span class="product-discountedPrice">₹2,499</span>
+          <a href="/brand/shoes/2"><img data-src="https://img.test/2.jpg"></a>
+        </li>
+        """
+
+        products = MyntraScraper()._parse_html(html)
+
+        assert len(products) == 1
+        assert products[0].price == 2499
+        assert products[0].title == "Brand Shoes"

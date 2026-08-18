@@ -1,0 +1,124 @@
+import pytest
+
+from models import Product, ScrapeStatus, Source, SourceResult
+from services import ai_service
+
+
+class FakeResponse:
+    status_code = 200
+    text = ""
+
+    def __init__(self, data):
+        self._data = data
+
+    def json(self):
+        return self._data
+
+    def raise_for_status(self):
+        return None
+
+
+class FakeClient:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def post(self, *args, **kwargs):
+        return self.response
+
+
+@pytest.fixture
+def product_result():
+    return SourceResult(
+        source=Source.AMAZON,
+        status=ScrapeStatus.FRESH,
+        products=[Product(
+            source=Source.AMAZON,
+            title="Test Mouse",
+            price=499,
+            currency="INR",
+            url="https://example.test/mouse",
+        )],
+    )
+
+
+@pytest.mark.asyncio
+async def test_extracts_text_from_multiple_gemini_parts(monkeypatch, product_result):
+    response = FakeResponse({
+        "candidates": [{"content": {"parts": [
+            {"thought": True, "text": "internal reasoning"},
+            {"text": "Choose the ₹499 option."},
+            {"text": " It is the better value."},
+        ]}}]
+    })
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FakeClient(response))
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse", [product_result], user_gemini_key="test-key"
+    )
+
+    assert recommendation == "Choose the ₹499 option.\nIt is the better value."
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_handles_gemini_blocked_response(monkeypatch, product_result):
+    response = FakeResponse({"promptFeedback": {"blockReason": "SAFETY"}})
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FakeClient(response))
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse", [product_result], user_gemini_key="test-key"
+    )
+
+    assert "lowest listed price is INR 499" in recommendation
+    assert error == "Gemini could not answer this search — showing a data-based summary"
+
+
+class SequenceClient:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def post(self, *args, **kwargs):
+        return next(self.responses)
+
+
+@pytest.mark.asyncio
+async def test_returns_data_summary_without_gemini_key(monkeypatch, product_result):
+    monkeypatch.setattr(ai_service.settings, "gemini_api_key", "")
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse", [product_result]
+    )
+
+    assert "lowest listed price is INR 499" in recommendation
+    assert error == "AI provider not configured — showing a data-based summary"
+
+
+@pytest.mark.asyncio
+async def test_retries_and_falls_back_when_gemini_is_busy(monkeypatch, product_result):
+    busy = FakeResponse({})
+    busy.status_code = 503
+    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: SequenceClient([busy, busy]))
+    monkeypatch.setattr(ai_service.asyncio, "sleep", lambda *args, **kwargs: _immediate_sleep())
+
+    recommendation, error = await ai_service.generate_recommendation(
+        "wireless mouse", [product_result], user_gemini_key="test-key"
+    )
+
+    assert "lowest listed price is INR 499" in recommendation
+    assert error == "Gemini is temporarily busy — showing a data-based summary"
+
+
+async def _immediate_sleep():
+    return None

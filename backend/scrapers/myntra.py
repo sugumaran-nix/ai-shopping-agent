@@ -78,7 +78,8 @@ class MyntraScraper:
         except Exception as exc:  # noqa: BLE001
             logger.debug("Myntra internal API failed: %s", exc)
 
-        # Try 2: ScraperAPI ultra_premium (residential proxy, bypasses Myntra's bot detection)
+        # Try 2: ScraperAPI rendered HTML. The ultra_premium option is plan-dependent
+        # and returns 403 for otherwise valid keys, so keep the request portable.
         if scraperapi_key or settings.scraperapi_key:
             try:
                 products = await self._try_scraperapi_premium(query, scraperapi_key)
@@ -107,14 +108,13 @@ class MyntraScraper:
         return self._parse_api_response(data)
 
     async def _try_scraperapi_premium(self, query: str, scraperapi_key: str | None = None) -> list[Product]:
-        """ScraperAPI with ultra_premium=true (residential proxy)."""
+        """Fetch rendered Myntra HTML through the standard ScraperAPI plan."""
         from urllib.parse import urlencode
         search_url = f"{_BASE}/search?q={query.strip().replace(' ', '+')}"
         params = {
             "api_key": scraperapi_key or settings.scraperapi_key,
             "url": search_url,
             "render": "true",
-            "ultra_premium": "true",
             "country_code": "in",
         }
         async with httpx.AsyncClient(timeout=90) as client:
@@ -127,113 +127,117 @@ class MyntraScraper:
 
         return self._parse_html(html)
 
-    def _parse_api_response(self, data: dict) -> list[Product]:
-        products = []
-        items = (
-            data.get("products", [])
-            or data.get("response", {}).get("products", [])
-        )
+    @staticmethod
+    def _find_product_dicts(value) -> list[dict]:
+        """Find product-like dicts inside Myntra's changing nested response shapes."""
+        found: list[dict] = []
+
+        def walk(node) -> None:
+            if isinstance(node, dict):
+                has_title = any(node.get(k) for k in ("product", "name", "title"))
+                has_price = any(node.get(k) is not None for k in ("discountedPrice", "price", "mrp", "finalPrice"))
+                if has_title and has_price:
+                    found.append(node)
+                for child in node.values():
+                    walk(child)
+            elif isinstance(node, list):
+                for child in node:
+                    walk(child)
+
+        walk(value)
+        return found
+
+    def _product_from_item(self, item: dict) -> Product | None:
+        brand = str(item.get("brand") or "").strip()
+        name = str(item.get("product") or item.get("name") or item.get("title") or "").strip()
+        title = f"{brand} {name}".strip() if brand and brand.lower() not in name.lower() else name
+        price_raw = item.get("discountedPrice") or item.get("price") or item.get("finalPrice") or item.get("mrp")
+        if not title or price_raw in (None, "", 0):
+            return None
+        try:
+            price = float(re.sub(r"[^\d.]", "", str(price_raw)))
+            if price <= 0:
+                return None
+            landing = item.get("landingPageUrl") or item.get("url") or item.get("slugV2") or item.get("slug") or ""
+            url = landing if str(landing).startswith("http") else f"{_BASE}/{str(landing).lstrip('/')}" if landing else _BASE
+            image = item.get("searchImage") or item.get("image") or item.get("imageUrl")
+            return Product(
+                source=self.source,
+                title=title,
+                price=price,
+                currency="INR",
+                rating=item.get("rating") or item.get("rating_score"),
+                review_count=item.get("ratingCount") or item.get("rating_count"),
+                url=url,
+                image_url=image,
+            )
+        except (TypeError, ValueError):
+            return None
+
+    def _products_from_items(self, items: list[dict]) -> list[Product]:
+        products: list[Product] = []
+        seen: set[str] = set()
         for item in items:
-            try:
-                brand = item.get("brand", "")
-                name = item.get("product", "") or item.get("name", "")
-                title = f"{brand} {name}".strip() if brand else name
-                price_raw = item.get("discountedPrice") or item.get("price")
-                landing = item.get("landingPageUrl") or item.get("slugV2", "")
-                if not title or not price_raw:
-                    continue
-                products.append(Product(
-                    source=self.source,
-                    title=title,
-                    price=float(price_raw),
-                    currency="INR",
-                    rating=item.get("rating"),
-                    review_count=item.get("ratingCount"),
-                    url=f"{_BASE}/{landing}" if landing else _BASE,
-                    image_url=item.get("searchImage"),
-                ))
-            except Exception:  # noqa: BLE001
-                continue
+            product = self._product_from_item(item)
+            if product and product.url not in seen:
+                seen.add(product.url)
+                products.append(product)
         return products
+
+    def _parse_api_response(self, data: dict) -> list[Product]:
+        return self._products_from_items(self._find_product_dicts(data))
 
     def _parse_html(self, html: str) -> list[Product]:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "lxml")
-        products = []
 
-        # Try window.__myx
+        # Myntra has used several embedded state names and formatting variants.
+        decoder = json.JSONDecoder()
         for script in soup.find_all("script"):
-            text = script.string or ""
-            match = re.search(r"window\.__myx\s*=\s*(\{.*?\});", text, re.DOTALL)
-            if match:
+            text = script.get_text() or ""
+            for marker in ("window.__myx", "window.__INITIAL_STATE__", "__PRELOADED_STATE__"):
+                start = text.find(marker)
+                if start < 0:
+                    continue
+                equals = text.find("=", start)
+                if equals < 0:
+                    continue
+                raw = text[equals + 1:].lstrip()
                 try:
-                    data = json.loads(match.group(1))
-                    items = (
-                        data.get("searchData", {}).get("results", {}).get("products", [])
-                        or data.get("data", {}).get("products", [])
-                    )
-                    for item in items:
-                        try:
-                            brand = item.get("brand", "")
-                            name = item.get("product", "") or item.get("name", "")
-                            title = f"{brand} {name}".strip() if brand else name
-                            price_raw = item.get("discountedPrice") or item.get("price")
-                            landing = item.get("landingPageUrl") or item.get("slugV2", "")
-                            if not title or not price_raw:
-                                continue
-                            products.append(Product(
-                                source=self.source,
-                                title=title,
-                                price=float(price_raw),
-                                currency="INR",
-                                rating=item.get("rating"),
-                                review_count=item.get("ratingCount"),
-                                url=f"{_BASE}/{landing}" if landing else _BASE,
-                                image_url=item.get("searchImage"),
-                            ))
-                        except Exception:  # noqa: BLE001
-                            continue
-                    if products:
-                        return products
-                except Exception:  # noqa: BLE001
-                    pass
+                    data, _ = decoder.raw_decode(raw)
+                except (TypeError, ValueError):
+                    continue
+                products = self._products_from_items(self._find_product_dicts(data))
+                if products:
+                    return products
 
-        # HTML fallback
-        cards = (
-            soup.select("li.product-base")
-            or soup.select("div[class*='product-base']")
-            or soup.select("li[class*='results-base']")
+        # Rendered-card fallback for ScraperAPI responses with JS executed.
+        cards = soup.select(
+            "li.product-base, li[class*='product-base'], li[class*='results-base'], "
+            "div[class*='product-base']"
         )
+        products: list[Product] = []
         for card in cards:
-            try:
-                brand_el = card.select_one("h3.product-brand")
-                name_el = card.select_one("h4.product-product") or card.select_one("h4")
-                price_el = (
-                    card.select_one("span.product-discountedPrice")
-                    or card.select_one("div.product-price span")
-                )
-                link_el = card.select_one("a[href]")
-                if not name_el or not price_el:
-                    continue
-                price_text = re.sub(r"[^\d.]", "", price_el.get_text(strip=True))
-                price = float(price_text) if price_text else None
-                if not price:
-                    continue
-                brand = brand_el.get_text(strip=True) if brand_el else ""
-                name = name_el.get_text(strip=True)
-                title = f"{brand} {name}".strip() if brand else name
-                href = link_el.get("href", "") if link_el else ""
-                url = f"{_BASE}/{href}" if href and not href.startswith("http") else href or _BASE
-                img_el = card.select_one("img")
-                products.append(Product(
-                    source=self.source,
-                    title=title,
-                    price=price,
-                    currency="INR",
-                    url=url,
-                    image_url=img_el.get("src") if img_el else None,
-                ))
-            except Exception:  # noqa: BLE001
+            brand_el = card.select_one("h3.product-brand, [class*='product-brand']")
+            name_el = card.select_one("h4.product-product, h4, [class*='product-product']")
+            price_el = card.select_one(
+                "span.product-discountedPrice, div.product-price span, "
+                "[class*='discountedPrice'], [class*='product-price'], [class*='price']"
+            )
+            link_el = card.select_one("a[href]")
+            if not name_el or not price_el:
                 continue
+            item = {
+                "brand": brand_el.get_text(" ", strip=True) if brand_el else "",
+                "name": name_el.get_text(" ", strip=True),
+                "price": price_el.get_text(" ", strip=True),
+                "url": link_el.get("href", "") if link_el else "",
+            }
+            image_el = card.select_one("img")
+            if image_el:
+                item["image"] = image_el.get("src") or image_el.get("data-src")
+            product = self._product_from_item(item)
+            if product:
+                products.append(product)
 
-        return products
+        return self._products_from_items([p.model_dump() for p in products])

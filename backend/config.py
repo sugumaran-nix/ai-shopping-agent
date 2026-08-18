@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     concurrent_scrape_limit: int = 4
 
     # ── AI ─────────────────────────────────────────────────────────────────
-    gemini_model: str = "gemini-2.0-flash"
+    # Use the live-tested alias with broad availability for current user keys.
+    gemini_model: str = "gemini-flash-latest"
     ai_max_products_per_source: int = 10
     ai_request_timeout_seconds: int = 30
 

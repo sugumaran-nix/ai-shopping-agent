@@ -260,12 +260,12 @@ async def validate_keys(request: Request):
     if gemini_key:
         try:
             import httpx as _httpx
-            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}?key={gemini_key}"
             async with _httpx.AsyncClient(timeout=8) as client:
                 r = await client.get(url)
             gemini_ok = r.status_code == 200
             if not gemini_ok:
-                gemini_error = "Invalid or unavailable key" if r.status_code in (400, 401, 403) else "Could not verify this key"
+                gemini_error = "Invalid key or unavailable model" if r.status_code in (400, 401, 403, 404) else "Could not verify this key"
         except Exception:  # noqa: BLE001
             gemini_error = "Could not reach the key verification service"
     else:
