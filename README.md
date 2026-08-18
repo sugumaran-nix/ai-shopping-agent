@@ -304,17 +304,18 @@ bash deploy.sh
 
 ## GitHub repository metadata
 
-Use the following values in the repository’s GitHub settings so the project is easy to understand and discover without overstating what it does.
+Use these values in **GitHub → Settings → General → Social preview / About**. The short description is suitable for GitHub’s About field; the longer description is useful for the repository profile, launch posts, or project listings.
 
-| GitHub field | Recommended value |
+| GitHub field | Copy-and-paste value |
 |---|---|
-| **About / short description** | AI shopping agent that compares live Amazon, Flipkart, Meesho, and Myntra listings and explains the best overall buy. |
-| **Website** | Add the deployed Vercel frontend URL once the production deployment is available. |
-| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `ecommerce`, `product-recommendations`, `fastapi`, `nextjs`, `scraperapi`, `gemini`, `myntra`, `flipkart`, `amazon`, `meesho`, `typescript`, `python` |
-| **Suggested social preview headline** | Shop less. Choose better. |
-| **Suggested social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
+| **About / short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with grounded AI buying recommendations. |
+| **Long project description** | AI shopping agent that gathers current product listings from four Indian marketplaces, ranks the best overall options using relevance, rating, review confidence, and price context, and explains the result with grounded AI or a transparent live-data fallback. |
+| **Website** | Add the deployed Vercel frontend URL, for example `https://your-shopping-agent.vercel.app`. |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `gemini`, `amazon`, `flipkart`, `meesho`, `myntra` |
+| **Social preview headline** | Shop less. Choose better. |
+| **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
 
-Avoid claiming that the project supports eBay in the About text or topics unless that source is wired into the active aggregator and frontend again.
+Keep the About text focused on the four active sources. Do not list eBay in the description or topics unless it is wired into the active aggregator and frontend again.
 
 ---
 
