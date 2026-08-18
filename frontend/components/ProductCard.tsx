@@ -1,16 +1,12 @@
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ArrowUpRight, Check, ShoppingBag, Star } from 'lucide-react'
 import type { Product } from '@/lib/api'
 import { formatPrice, SOURCE_META } from '@/lib/api'
 
 export function ProductCard({ product, isBestPick = false, showSource = false }: { product: Product; isBestPick?: boolean; showSource?: boolean }) {
   const price = formatPrice(product.price, product.currency)
-  const [imageFailed, setImageFailed] = useState(false)
-
-  useEffect(() => {
-    setImageFailed(false)
-  }, [product.image_url])
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
 
   return (
     <a
@@ -21,7 +17,7 @@ export function ProductCard({ product, isBestPick = false, showSource = false }:
       aria-label={`${product.title}, ${price}${isBestPick ? ', best overall pick' : ''} — opens in new tab`}
     >
       <div className="relative h-[68px] w-[68px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[#eceee8] bg-[#f8f8f4]">
-        {product.image_url && !imageFailed ? <Image src={product.image_url} alt="" fill sizes="68px" className="object-contain p-1 transition-transform duration-300 group-hover:scale-105" loading="lazy" unoptimized onError={() => setImageFailed(true)} /> : <div className="flex h-full w-full items-center justify-center text-[#c3c8bd]"><ShoppingBag className="h-6 w-6" aria-hidden /></div>}
+        {product.image_url && failedImageUrl !== product.image_url ? <Image src={product.image_url} alt="" fill sizes="68px" className="object-contain p-1 transition-transform duration-300 group-hover:scale-105" loading="lazy" unoptimized onError={() => setFailedImageUrl(product.image_url || null)} /> : <div className="flex h-full w-full items-center justify-center text-[#c3c8bd]"><ShoppingBag className="h-6 w-6" aria-hidden /></div>}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
         <div className="flex items-start justify-between gap-2"><div className="min-w-0">{showSource && <p className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#718239]">{SOURCE_META[product.source].label}</p>}<p className="line-clamp-2 text-xs font-bold leading-snug text-[#343a31] transition-colors group-hover:text-[#4e6d19]">{product.title}</p></div>{isBestPick && <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-[#c9f36b] px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#35530a]"><Check className="h-3 w-3" aria-hidden /> Best</span>}</div>

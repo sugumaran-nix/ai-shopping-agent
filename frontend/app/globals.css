@@ -257,26 +257,25 @@ html.dark .source-scroll-arrow { border-color: #4a5b3e; color: #b4d873; }
   z-index: 15;
   margin: 0 -0.15rem;
   padding: 0.35rem 0.15rem;
-  will-change: padding, background-color, box-shadow;
-  transition: transform 180ms cubic-bezier(.23,1,.32,1), opacity 180ms ease, padding 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  will-change: transform, padding;
+  transition: transform 220ms cubic-bezier(.23,1,.32,1), opacity 220ms ease, padding 220ms ease;
 }
 
 .results-search-sticky--stuck {
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
-  background: rgba(245, 244, 239, 0.82);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 12px 28px rgba(35, 44, 25, 0.08);
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
 }
 
 .results-search-sticky--stuck > div {
   transform: translateY(0);
 }
 
-html.dark .results-search-sticky--stuck {
-  background: rgba(15, 18, 14, 0.84);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+.results-search-sticky--stuck .group {
+  box-shadow: 0 14px 30px rgba(35, 44, 25, 0.12);
+}
+
+html.dark .results-search-sticky--stuck .group {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
 @media (max-width: 640px) {
@@ -287,7 +286,20 @@ html.dark .results-search-sticky--stuck {
   }
 
   .results-search-sticky--stuck {
-    padding-top: 0.45rem;
-    padding-bottom: 0.45rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+  }
+}
+
+.source-products-scroll > a {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 108px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results-search-sticky,
+  .results-search-sticky--stuck,
+  .results-search-sticky .group {
+    transition: none;
   }
 }
