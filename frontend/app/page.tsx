@@ -180,7 +180,7 @@ export default function HomePage() {
       <div className="space-y-10 sm:space-y-14">
         {phase.name === 'idle' && <>
           <section className="mx-auto max-w-5xl text-center">
-            <div className="mb-6 flex items-center justify-center gap-3"><span className="eyebrow text-[#89907f]">The faster way to choose well</span><span className="rounded-full bg-[#c9f36b] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#35530a]">Live</span></div>
+            <div className="mb-6 flex items-center justify-center"><span className="eyebrow text-[#89907f]">The faster way to choose well</span></div>
             <h1 className="font-display text-[clamp(3.6rem,9vw,8.5rem)] leading-[0.82] text-[#171a16]">Shop less.<br /><span className="italic text-[#718b36]">Choose better.</span></h1>
             <p className="mx-auto mt-7 max-w-xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare real prices across the places you trust, then let AI turn the noise into one confident next step.</p>
             <div className="mt-8"><SearchBar value={query} onChange={setQuery} onSearch={handleSearch} loading={false} /></div>

@@ -1,6 +1,6 @@
 # AI Shopping Agent
 
-Compares products across **Amazon, Flipkart, Meesho, Myntra**, and the **official eBay Browse API**, then uses **Google Gemini** to generate a buying recommendation grounded strictly in the real data returned.
+Compares products across **Amazon, Flipkart, Meesho, and Myntra**, then uses **Google Gemini** when available to generate a buying recommendation grounded strictly in the live product data returned.
 
 **No dummy, sample, or fabricated data exists anywhere in this codebase.** Every product shown comes from a real scrape or a real API call, and every result is explicitly labeled — `fresh`, `stale`, or `unavailable` — so you always know what you're looking at.
 
@@ -18,9 +18,8 @@ backend/
     base.py                 Shared scrape → validate → cache → fallback flow
     amazon.py / flipkart.py / meesho.py / myntra.py
   services/
-    aggregator.py           Runs all sources concurrently (semaphore-bounded)
-    ai_service.py           Gemini recommendation, grounded in labeled data
-    ebay_service.py         Official eBay Browse API client (OAuth2)
+    aggregator.py           Runs all four sources concurrently (semaphore-bounded)
+    ai_service.py           Gemini → OpenRouter → deterministic fallback pipeline
     health_monitor.py       Canary health checks per source
   utils/
     http_client.py          ScraperAPI wrapper with retry/backoff
@@ -45,6 +44,8 @@ frontend/
 
 ### Request flow
 
+The browser sends user-provided API keys through request headers. Keys remain in `sessionStorage`, are never written to the backend cache, and are used only for the current search request.
+
 ```
 User → GET /api/v1/search?q=...
          ↓ request ID middleware
@@ -55,7 +56,6 @@ User → GET /api/v1/search?q=...
          ├── FlipkartScraper.search() ─┤ concurrent, semaphore-bounded
          ├── MeeshoScraper.search()   ─┤
          ├── MyntraScraper.search()   ─┤
-         └── search_ebay()            ─┘
                  ↓
          BaseScraper: fetch → parse → validate → cache → fresh/stale/unavailable
                  ↓
@@ -78,12 +78,17 @@ Long marketplace lists stay inside their source cards instead of expanding the e
 | Results loading | Marketplace-shaped skeleton cards preserve layout while real listings are fetched. |
 | Product comparison | Lowest comparable price is marked with a subtle Best badge when all prices use the same currency. |
 | Theme control | The header toggle persists light/dark mode in browser storage and respects reduced-motion preferences. |
-| Source cards | Each marketplace has independent sorting and an internal scroll area for long result lists. |
+| Source cards | Each marketplace has independent Best match, Low price, High price, and Top rated filters plus an internal scroll area for long result lists. |
+| Top 10 shortlist | Cross-marketplace ranking balances relevance, rating, review confidence, and price context rather than simply choosing the cheapest item. |
 | API-key setup | Keys are entered in a compact first-run flow and remain in the browser session only. |
+| Search resilience | Gemini retries transient failures, optionally falls back to OpenRouter, and always has a deterministic live-data summary fallback. |
+| Cache protection | Fresh results short-circuit upstream requests; single-flight locking prevents concurrent cache stampedes; Redis is optional with disk-backed fallback. |
 
 The frontend is intentionally careful about wording: user-facing copy describes the shopping action and result state, while implementation details such as framework names stay in the project documentation and deployment notes.
 
 ## Setup
+
+The default comparison surface is intentionally limited to four sources: Amazon, Flipkart, Meesho, and Myntra. The optional `ebay_service.py` remains outside the active aggregator and is not shown in the current UI.
 
 ### Requirements
 
@@ -92,7 +97,6 @@ The frontend is intentionally careful about wording: user-facing copy describes 
 - [ScraperAPI key](https://www.scraperapi.com/) — free tier available
 - [Google Gemini API key](https://aistudio.google.com/app/apikey) — optional primary AI provider
 - [OpenRouter API key](https://openrouter.ai/keys) — optional free-model fallback
-- [eBay developer credentials](https://developer.ebay.com/my/keys) — optional
 
 ### Backend
 
@@ -148,8 +152,6 @@ All variables are documented in `backend/.env.example`. Key ones:
 |---|---|---|---|
 | `SCRAPERAPI_KEY` | ✅ | — | ScraperAPI proxy key |
 | `GEMINI_API_KEY` | — | — | Optional Google Gemini API key; the app falls back to live-data summaries when unavailable |
-| `EBAY_CLIENT_ID` | — | — | eBay app client ID (enables eBay source) |
-| `EBAY_CLIENT_SECRET` | — | — | eBay app client secret |
 | `ALLOWED_ORIGINS` | — | `http://localhost:3000` | Comma-separated CORS origins |
 | `CACHE_TTL_SECONDS` | — | `1800` | Fresh cache window (30 min) |
 | `CACHE_DIR` | — | `.cache` | Persistent disk-cache directory when Redis is not configured |
@@ -300,13 +302,49 @@ bash deploy.sh
 
 ---
 
+## GitHub repository metadata
+
+Use the following values in the repository’s GitHub settings so the project is easy to understand and discover without overstating what it does.
+
+| GitHub field | Recommended value |
+|---|---|
+| **About / short description** | AI shopping agent that compares live Amazon, Flipkart, Meesho, and Myntra listings and explains the best overall buy. |
+| **Website** | Add the deployed Vercel frontend URL once the production deployment is available. |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `ecommerce`, `product-recommendations`, `fastapi`, `nextjs`, `scraperapi`, `gemini`, `myntra`, `flipkart`, `amazon`, `meesho`, `typescript`, `python` |
+| **Suggested social preview headline** | Shop less. Choose better. |
+| **Suggested social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
+
+Avoid claiming that the project supports eBay in the About text or topics unless that source is wired into the active aggregator and frontend again.
+
+---
+
+## Verification checklist
+
+The currently supported verification commands are:
+
+```bash
+# Backend behavior
+cd backend
+pytest -q
+
+# Frontend lint and production build
+cd ../frontend
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run build
+```
+
+The backend test suite covers API behavior, cache semantics, single-flight concurrency, model validation, scraper parsing, and Myntra relevance filtering. The frontend checks cover ESLint, TypeScript validation, and the Next.js production build.
+
+---
+
 ## Contributing
 
 1. Fork and create a feature branch.
 2. Install dev dependencies: `pip install -r requirements.txt -r requirements-dev.txt`
 3. Make changes. Add or update tests.
-4. Run `ruff check . && ruff format . && pytest` before pushing.
-5. Open a PR against `main` — CI runs lint, format, and tests automatically.
+4. Run the backend test suite with `pytest` and the frontend checks with `pnpm run lint && pnpm run build` before pushing.
+5. Open a PR against `main` and include the verification results in the PR description.
 
 ### Adding a new marketplace scraper
 
