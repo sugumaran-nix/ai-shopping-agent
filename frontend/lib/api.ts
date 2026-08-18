@@ -120,7 +120,7 @@ export const SOURCE_META: Record<Source, {
   accent: string
 }> = {
   amazon:   { label: 'Amazon',   color: 'bg-orange-50 border-orange-200', headerColor: 'bg-orange-100', accent: 'text-orange-800' },
-  flipkart: { label: 'Flipkart', color: 'bg-blue-50   border-blue-200',   headerColor: 'bg-blue-100',   accent: 'text-blue-800'   },
+  flipkart: { label: 'Flipkart', color: 'bg-[#f7faed] border-[#d7e4b5]', headerColor: 'bg-[#eff7d9]', accent: 'text-[#64832b]' },
   meesho:   { label: 'Meesho',   color: 'bg-pink-50   border-pink-200',   headerColor: 'bg-pink-100',   accent: 'text-pink-800'   },
   myntra:   { label: 'Myntra',   color: 'bg-rose-50   border-rose-200',   headerColor: 'bg-rose-100',   accent: 'text-rose-800'   },
 }
