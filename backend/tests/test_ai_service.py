@@ -1,218 +1,101 @@
-import pytest
-
-import asyncio
-
 from models import Product, ScrapeStatus, Source, SourceResult
 from services import ai_service
 
 
-class FakeResponse:
-    status_code = 200
-    text = ""
-
-    def __init__(self, data):
-        self._data = data
-
-    def json(self):
-        return self._data
-
-    def raise_for_status(self):
-        return None
+def make_product(source: Source, title: str, price: float, rating: float | None, reviews: int | None, index: int) -> Product:
+    return Product(
+        source=source,
+        title=title,
+        price=price,
+        currency="INR",
+        rating=rating,
+        review_count=reviews,
+        url=f"https://example.test/{source.value}/{index}",
+    )
 
 
-class FakeClient:
-    def __init__(self, response):
-        self.response = response
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return False
-
-    async def post(self, *args, **kwargs):
-        return self.response
-
-
-@pytest.fixture
-def product_result():
-    return SourceResult(
+def test_weighted_score_uses_price_rating_and_reviews():
+    result = SourceResult(
         source=Source.AMAZON,
         status=ScrapeStatus.FRESH,
-        products=[Product(
-            source=Source.AMAZON,
-            title="Test Mouse",
-            price=499,
-            currency="INR",
-            url="https://example.test/mouse",
-        )],
+        products=[
+            make_product(Source.AMAZON, "Budget Mouse", 100, 4.0, 10, 1),
+            make_product(Source.AMAZON, "Premium Mouse", 200, 5.0, 100, 2),
+            make_product(Source.AMAZON, "Balanced Mouse", 150, 4.5, 50, 3),
+        ],
     )
 
+    ranked = ai_service._score_products([result])
 
-@pytest.mark.asyncio
-async def test_extracts_text_from_multiple_gemini_parts(monkeypatch, product_result):
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
-    response = FakeResponse({
-        "candidates": [{"content": {"parts": [
-            {"thought": True, "text": "internal reasoning"},
-            {"text": "Choose the ₹499 option."},
-            {"text": " It is the better value."},
-        ]}}]
-    })
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FakeClient(response))
+    assert [item.product.title for item in ranked] == ["Budget Mouse", "Balanced Mouse", "Premium Mouse"]
+    assert ranked[0].price_score == 100
+    assert ranked[0].rating_score == 80
+    assert ranked[0].review_score == 0
+    assert ranked[0].total_score == 72
+    assert ranked[1].total_score > ranked[2].total_score
 
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse", [product_result], user_gemini_key="test-key"
+
+def test_recommendation_returns_top_three_with_explainable_scores():
+    result = SourceResult(
+        source=Source.FLIPKART,
+        status=ScrapeStatus.FRESH,
+        products=[make_product(Source.FLIPKART, f"Mouse {index}", 100 + index * 10, 4.0 + index * 0.1, index * 10, index) for index in range(5)],
     )
 
-    assert recommendation == "Choose the ₹499 option.\nIt is the better value."
+    recommendation, error = ai_service.generate_recommendation("wireless mouse", [result])
+
     assert error is None
+    assert recommendation is not None
+    assert recommendation.startswith('Top 3 picks for "wireless mouse"')
+    assert "Weighted score: price 40% + rating 40% + review count 20%." in recommendation
+    assert recommendation.count("score ") == 3
+    assert "Mouse 0" in recommendation
+    assert "Mouse 3" not in recommendation or "Mouse 4" not in recommendation
+    assert "Verify the retailer page" in recommendation
 
 
-@pytest.mark.asyncio
-async def test_handles_gemini_blocked_response(monkeypatch, product_result):
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
-    response = FakeResponse({"promptFeedback": {"blockReason": "SAFETY"}})
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FakeClient(response))
-
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse", [product_result], user_gemini_key="test-key"
+def test_unavailable_sources_are_excluded():
+    unavailable = SourceResult(
+        source=Source.AMAZON,
+        status=ScrapeStatus.UNAVAILABLE,
+        products=[make_product(Source.AMAZON, "Unavailable Mouse", 1, 5.0, 999, 1)],
+    )
+    available = SourceResult(
+        source=Source.MEESHO,
+        status=ScrapeStatus.STALE,
+        products=[make_product(Source.MEESHO, "Saved Mouse", 499, 4.2, 12, 2)],
     )
 
-    assert "lowest listed price is INR 499" in recommendation
-    assert error == "Gemini could not answer this search — showing a data-based summary"
+    recommendation, error = ai_service.generate_recommendation("mouse", [unavailable, available])
 
-
-class SequenceClient:
-    def __init__(self, responses):
-        self.responses = iter(responses)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return False
-
-    async def post(self, *args, **kwargs):
-        return next(self.responses)
-
-
-@pytest.mark.asyncio
-async def test_returns_data_summary_without_gemini_key(monkeypatch, product_result):
-    monkeypatch.setattr(ai_service.settings, "gemini_api_key", "")
-
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse", [product_result]
-    )
-
-    assert "lowest listed price is INR 499" in recommendation
-    assert error == "AI provider not configured — showing a data-based summary"
-
-
-@pytest.mark.asyncio
-async def test_retries_and_falls_back_when_gemini_is_busy(monkeypatch, product_result):
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
-    busy = FakeResponse({})
-    busy.status_code = 503
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: SequenceClient([busy, busy]))
-    monkeypatch.setattr(ai_service.asyncio, "sleep", lambda *args, **kwargs: _immediate_sleep())
-
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse", [product_result], user_gemini_key="test-key"
-    )
-
-    assert "lowest listed price is INR 499" in recommendation
-    assert error == "Gemini is temporarily busy — showing a data-based summary"
-
-
-async def _immediate_sleep():
-    return None
-
-
-@pytest.mark.asyncio
-async def test_uses_cached_recommendation(monkeypatch, product_result):
-    class CachedEntry:
-        data = "Cached recommendation"
-
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: CachedEntry())
-
-    class FailingClient:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *args):
-            return False
-
-        async def post(self, *args, **kwargs):
-            raise AssertionError("provider should not be called on a cache hit")
-
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: FailingClient())
-
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse", [product_result], user_gemini_key="test-key"
-    )
-
-    assert recommendation == "Cached recommendation"
     assert error is None
+    assert recommendation is not None
+    assert "Saved Mouse" in recommendation
+    assert "Unavailable Mouse" not in recommendation
 
 
-def test_extracts_openrouter_chat_content():
-    text, error = ai_service._extract_openrouter_text({
-        "choices": [{"message": {"content": "Use the lower-priced option."}}]
-    })
+def test_no_products_returns_a_clear_data_error():
+    result = SourceResult(source=Source.MYNTRA, status=ScrapeStatus.UNAVAILABLE, products=[])
 
-    assert text == "Use the lower-priced option."
-    assert error is None
+    recommendation, error = ai_service.generate_recommendation("laptop stand", [result])
+
+    assert recommendation is None
+    assert error == "No product data available to rank"
 
 
-@pytest.mark.asyncio
-async def test_uses_openrouter_after_gemini_busy(monkeypatch, product_result):
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ai_service.asyncio, "sleep", lambda *args, **kwargs: _immediate_sleep())
-
-    busy = FakeResponse({})
-    busy.status_code = 503
-    openrouter_response = FakeResponse({
-        "choices": [{"message": {"content": "Use the lower-priced option."}}]
-    })
-    clients = iter([
-        SequenceClient([busy, busy]),
-        FakeClient(openrouter_response),
-    ])
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: next(clients))
-
-    recommendation, error = await ai_service.generate_recommendation(
-        "wireless mouse",
-        [product_result],
-        user_gemini_key="test-gemini-key",
-        user_openrouter_key="test-openrouter-key",
+def test_equal_values_normalize_to_full_scores():
+    result = SourceResult(
+        source=Source.MYNTRA,
+        status=ScrapeStatus.FRESH,
+        products=[
+            make_product(Source.MYNTRA, "Same One", 100, 4.0, 10, 1),
+            make_product(Source.MYNTRA, "Same Two", 100, 4.0, 10, 2),
+        ],
     )
 
-    assert recommendation == "Use the lower-priced option."
-    assert error is None
+    ranked = ai_service._score_products([result])
 
-
-@pytest.mark.asyncio
-async def test_singleflight_deduplicates_concurrent_provider_calls(monkeypatch, product_result):
-    class CountingClient(FakeClient):
-        calls = 0
-
-        async def post(self, *args, **kwargs):
-            self.calls += 1
-            await asyncio.sleep(0.01)
-            return FakeResponse({
-                "candidates": [{"content": {"parts": [{"text": "Shared recommendation."}]}}]
-            })
-
-    client = CountingClient(None)
-    monkeypatch.setattr(ai_service, "cache_get", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ai_service, "cache_store", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ai_service.httpx, "AsyncClient", lambda *args, **kwargs: client)
-
-    responses = await asyncio.gather(*[
-        ai_service.generate_recommendation("wireless mouse", [product_result], user_gemini_key="test-key")
-        for _ in range(25)
-    ])
-
-    assert client.calls == 1
-    assert {recommendation for recommendation, _ in responses} == {"Shared recommendation."}
+    assert all(item.price_score == 100 for item in ranked)
+    assert all(item.review_score == 100 for item in ranked)
+    assert all(item.total_score == 92 for item in ranked)
+    assert [item.product.title for item in ranked] == ["Same One", "Same Two"]

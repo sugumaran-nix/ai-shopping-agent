@@ -132,18 +132,18 @@ class TestHealth:
         assert r.status_code == 200
 
 
-class TestOptionalAiProvider:
+class TestScraperKeyForwarding:
     @patch("main.run_search", new_callable=AsyncMock)
-    def test_openrouter_header_forwarded(self, mock_run):
+    def test_scraperapi_header_forwarded(self, mock_run):
         mock_run.return_value = SearchResponse(query="mouse", results=[])
 
         response = client.get(
             "/api/v1/search?q=mouse",
-            headers={"X-OpenRouter-Key": "test-openrouter-key"},
+            headers={"X-ScraperAPI-Key": "test-scraper-key"},
         )
 
         assert response.status_code == 200
-        assert mock_run.await_args.kwargs["user_openrouter_key"] == "test-openrouter-key"
+        assert mock_run.await_args.kwargs["user_scraperapi_key"] == "test-scraper-key"
 
     def test_provider_http_logs_are_quiet(self):
         import logging

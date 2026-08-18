@@ -10,9 +10,6 @@ services:
       # ── REQUIRED — set these in the Render dashboard ──────────────────────
       - key: SCRAPERAPI_KEY
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-
       # ── CORS — set to your exact Vercel URL ───────────────────────────────
       # Example: https://ai-shopping-agent-abc.vercel.app
       - key: ALLOWED_ORIGINS
@@ -42,11 +39,5 @@ services:
         value: "2"
       - key: CONCURRENT_SCRAPE_LIMIT
         value: "4"
-      - key: GEMINI_MODEL
-        value: gemini-flash-latest
-      - key: AI_MAX_PRODUCTS_PER_SOURCE
-        value: "10"
-      - key: AI_REQUEST_TIMEOUT_SECONDS
-        value: "30"
       - key: PYTHON_VERSION
         value: "3.12.3"

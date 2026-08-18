@@ -6,7 +6,6 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-35530a?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-718239?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini_AI-4e6d19?style=for-the-badge&logo=googlegemini&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Deployed_on_Vercel-171a16?style=for-the-badge&logo=vercel&logoColor=white)
 
 **[🚀 Live Demo](https://ai-shopping-agent-theta.vercel.app)** · **[GitHub Repository](https://github.com/sugumaran-nix/ai-shopping-agent)**
@@ -29,7 +28,7 @@ Replace the line below with a recorded product-search GIF when available.
 - **Four live marketplaces** — Compare Amazon, Flipkart, Meesho, and Myntra in one focused results workspace.
 - **Top 10 ranked shortlist** — Overall best ranking uses relevance, rating, review confidence, and price context rather than simply choosing the cheapest product.
 - **Per-marketplace filters** — Sort each source by best match, low price, high price, or top rating without losing comparison context.
-- **Grounded AI recommendations** — Gemini explains the returned products when available; OpenRouter can act as an optional fallback, followed by a transparent deterministic live-data summary.
+- **Transparent weighted recommendations** — Every available product receives a visible score from normalized price (40%), rating (40%), and review count (20%), with the top three returned in a deterministic summary.
 - **No fabricated listings** — Products come from live scrapes or cached real results and are labeled `fresh`, `stale`, or `unavailable`.
 - **Resilient scraping** — ScraperAPI keys can be supplied by the user, scraper failures retry safely, and stale cache data is shown instead of a blank result.
 - **Myntra relevance filtering** — Query-aware parsing and identity matching prevent unrelated products from appearing in the results.
@@ -49,7 +48,7 @@ Replace the line below with a recorded product-search GIF when available.
 | Styling | Tailwind CSS and custom editorial UI styles |
 | Backend framework | FastAPI |
 | Scraping and HTTP | httpx, ScraperAPI, BeautifulSoup, lxml |
-| AI providers | Google Gemini, optional OpenRouter, deterministic live-data fallback |
+| Recommendation engine | Deterministic weighted scorer using normalized price, rating, and review count |
 | Validation | Pydantic and pydantic-settings |
 | Cache | Diskcache by default, optional Redis for shared persistence |
 | Deployment | Vercel frontend, Render backend, Docker-compatible services |
@@ -73,7 +72,7 @@ ai-shopping-agent/
 │   │   └── myntra.py           # Myntra API/HTML parser and relevance filtering
 │   ├── services/
 │   │   ├── aggregator.py       # Concurrent four-marketplace orchestration
-│   │   ├── ai_service.py       # Gemini → OpenRouter → deterministic fallback
+│   │   ├── ai_service.py       # Deterministic weighted top-three scorer
 │   │   └── health_monitor.py   # Per-marketplace canary checks
 │   ├── utils/
 │   │   ├── headers.py          # Request headers, parsing and image URL helpers
@@ -112,7 +111,6 @@ ai-shopping-agent/
 - Node.js 20+
 - pnpm
 - A ScraperAPI key for live marketplace scraping
-- A Gemini key for AI recommendations, or an optional OpenRouter key as a fallback
 
 The application also supports user-provided keys through the setup screen. Those keys are stored only in the current browser session and are never written to the backend cache.
 
@@ -136,13 +134,9 @@ Create `backend/.env` with server-side defaults if desired. User-entered keys fr
 
 ```env
 SCRAPERAPI_KEY=
-GEMINI_API_KEY=
-OPENROUTER_API_KEY=
 ALLOWED_ORIGINS=http://localhost:3000
 CACHE_TTL_SECONDS=1800
 STALE_SERVE_TTL_SECONDS=21600
-GEMINI_MODEL=gemini-flash-latest
-OPENROUTER_MODEL=openrouter/free
 REDIS_URL=
 ENVIRONMENT=development
 LOG_LEVEL=INFO
@@ -192,9 +186,9 @@ FastAPI aggregator runs Amazon, Flipkart, Meesho and Myntra concurrently
         ↓
 Each scraper fetches → parses → validates → caches → labels its result
         ↓
-Top 10 ranking combines relevance, rating, review confidence and price context
+Top 10 frontend shortlist combines relevance, rating, review confidence and price context
         ↓
-Gemini recommendation, OpenRouter fallback or deterministic live-data summary
+Deterministic backend scorer returns the top three with price, rating, and review subscores
         ↓
 Frontend shows the ranked shortlist and source-specific product cards
 ```
@@ -211,7 +205,7 @@ Every result is labeled according to its source state:
 
 ## 🔐 API-Key Privacy Model
 
-The setup screen accepts ScraperAPI, Gemini, and optional OpenRouter keys. The frontend keeps them in `sessionStorage` and forwards them to the backend only through request headers. The backend uses them for the current request and does not store them in scrape or AI recommendation caches.
+The setup screen accepts one ScraperAPI key. The frontend keeps it in `sessionStorage` and forwards it to the backend only through the `X-ScraperAPI-Key` request header. The backend does not store the key in the scrape cache.
 
 Refreshing the page or returning home keeps the keys available in the same browser tab session. Closing the tab clears the session, after which the setup screen appears again. This provides a practical balance between convenience and session-only access.
 
@@ -219,9 +213,9 @@ Refreshing the page or returning home keeps the keys available in the same brows
 
 ## 🧠 Recommendation and Ranking
 
-The ranked shortlist is intentionally not a lowest-price list. Products are first made comparable by currency and relevance, then scored using product identity, rating, review confidence, and price context. Users can switch between **Overall best**, **Top rated**, **Best price**, and **Most reviewed**.
+The ranked shortlist is intentionally not a lowest-price list. The frontend ranks the Top 10 using relevance, rating, review confidence, and price context, while the backend returns a deterministic top-three recommendation. Its weighted score is calculated across all available products as **40% normalized price**, **40% rating out of 5**, and **20% normalized review count**. The recommendation includes each product’s total score and component scores so users can see exactly why it ranked.
 
-AI recommendations are grounded only in the products returned by the marketplace search. When Gemini is unavailable, the service can try OpenRouter and finally returns a deterministic data-based explanation instead of failing the entire search.
+Because the scorer is local and data-driven, recommendation generation adds no external API call, provider timeout, rate limit, or cloud-AI dependency. If no products are available, the API returns a clear data-unavailable message instead of inventing a recommendation.
 
 ---
 
@@ -257,7 +251,7 @@ cd backend
 pytest -q
 ```
 
-The suite covers API behavior, cache semantics, single-flight concurrency, model validation, image URL normalization, scraper parsing, and Myntra relevance filtering.
+The suite covers API behavior, deterministic recommendation scoring, cache semantics, single-flight concurrency, model validation, image URL normalization, scraper parsing, and Myntra relevance filtering.
 
 ### Frontend checks
 
@@ -278,9 +272,9 @@ Use these values in **GitHub → Settings → General → About**:
 
 | Field | Recommended value |
 |---|---|
-| **Short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with grounded AI buying recommendations. |
+| **Short description** | Compare live prices across Amazon, Flipkart, Meesho, and Myntra with transparent weighted buying recommendations. |
 | **Website** | `https://ai-shopping-agent-theta.vercel.app` |
-| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `gemini`, `amazon`, `flipkart`, `meesho`, `myntra` |
+| **Topics** | `ai-shopping`, `price-comparison`, `shopping-agent`, `product-recommendations`, `ecommerce`, `fastapi`, `nextjs`, `react`, `typescript`, `python`, `scraperapi`, `amazon`, `flipkart`, `meesho`, `myntra` |
 | **Social preview headline** | Shop less. Choose better. |
 | **Social preview description** | Compare fresh marketplace listings and get grounded buying guidance without sponsored rankings. |
 

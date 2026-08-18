@@ -59,10 +59,9 @@ logger = logging.getLogger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(
-        "AI Shopping Agent starting | env=%s scraperapi=%s gemini=%s",
+        "AI Shopping Agent starting | env=%s scraperapi=%s",
         settings.environment,
         "configured" if settings.scraperapi_key else "MISSING",
-        "configured" if settings.gemini_api_key else "MISSING",
     )
     yield
     logger.info("AI Shopping Agent shutting down")
@@ -75,8 +74,8 @@ app = FastAPI(
     description=(
         "Compares products across Amazon, Flipkart, Meesho, and Myntra. "
         "Results are explicitly labeled fresh, stale, or unavailable. "
-        "AI recommendations are grounded strictly in the real data returned — "
-        "no hallucinated prices or products."
+        "Recommendations are calculated strictly from the real data returned — "
+        "no invented prices or products."
     ),
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -90,7 +89,7 @@ app.add_middleware(
     allow_origins=settings.allowed_origins_list,
     allow_credentials=False,
     allow_methods=["GET"],
-    allow_headers=["Content-Type", "X-Request-ID", "X-Gemini-Key", "X-ScraperAPI-Key"],
+    allow_headers=["Content-Type", "X-Request-ID", "X-ScraperAPI-Key"],
 )
 
 
@@ -174,27 +173,19 @@ async def search(
     - **unavailable** — no data available from this source
 
     Optional headers:
-    - **X-Gemini-Key** — user's own Gemini API key for AI recommendations
     - **X-ScraperAPI-Key** — user's own ScraperAPI key for scraping
 
-    The AI recommendation is grounded only in the data returned above —
-    it will not invent prices or products.
+    The recommendation is calculated locally from the returned product data
+    using transparent price, rating, and review weights.
     """
     query = q.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be blank.")
 
-    # Accept user-supplied keys from request headers
-    user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
-    user_openrouter_key = request.headers.get("X-OpenRouter-Key", "").strip() or None
+    # Accept the user-supplied ScraperAPI key from the request header.
     user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
 
-    result = await run_search(
-        query,
-        user_gemini_key=user_gemini_key,
-        user_openrouter_key=user_openrouter_key,
-        user_scraperapi_key=user_scraperapi_key,
-    )
+    result = await run_search(query, user_scraperapi_key=user_scraperapi_key)
     result.request_id = getattr(request.state, "request_id", None)
     return result
 
@@ -249,60 +240,12 @@ async def cache_clear():
 
 @app.get("/api/v1/validate-keys", tags=["ops"])
 async def validate_keys(request: Request):
-    """
-    Validates API keys — either server-configured or user-supplied via headers.
-    Returns which services are available without making a full search.
-    Used by the frontend to show the API key setup screen when needed.
-    """
-    user_gemini_key = request.headers.get("X-Gemini-Key", "").strip() or None
-    user_openrouter_key = request.headers.get("X-OpenRouter-Key", "").strip() or None
+    """Validate the user-supplied or server-configured ScraperAPI key."""
     user_scraperapi_key = request.headers.get("X-ScraperAPI-Key", "").strip() or None
-
-    gemini_key = user_gemini_key or settings.gemini_api_key
-    openrouter_key = user_openrouter_key or settings.openrouter_api_key
     scraper_key = user_scraperapi_key or settings.scraperapi_key
-
-    # Quick test of Gemini key
-    gemini_ok = False
-    gemini_error = None
-    if gemini_key:
-        try:
-            import httpx as _httpx
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}?key={gemini_key}"
-            async with _httpx.AsyncClient(timeout=8) as client:
-                r = await client.get(url)
-            gemini_ok = r.status_code == 200
-            if not gemini_ok:
-                gemini_error = "Invalid key or unavailable model" if r.status_code in (400, 401, 403, 404) else "Could not verify this key"
-        except Exception:  # noqa: BLE001
-            gemini_error = "Could not reach the key verification service"
-    else:
-        gemini_error = "No key provided"
-
-    # Lightweight OpenRouter check so the optional free-model alternative is actionable.
-    openrouter_ok = False
-    openrouter_error = None
-    if openrouter_key:
-        try:
-            import httpx as _httpx
-            async with _httpx.AsyncClient(timeout=8) as client:
-                response = await client.get(
-                    "https://openrouter.ai/api/v1/models",
-                    headers={"Authorization": f"Bearer {openrouter_key}"},
-                )
-            openrouter_ok = response.status_code == 200
-            if not openrouter_ok:
-                openrouter_error = "Invalid or unavailable key" if response.status_code in (400, 401, 403) else "Could not verify this key"
-        except _httpx.TimeoutException:
-            openrouter_error = "Key verification timed out"
-        except Exception:  # noqa: BLE001
-            openrouter_error = "Could not reach the key verification service"
-    else:
-        openrouter_error = "No key provided"
-
-    # Lightweight real ScraperAPI check so a present-but-invalid key is not reported as working.
     scraper_ok = False
     scraper_error = None
+
     if scraper_key:
         try:
             import httpx as _httpx
@@ -330,15 +273,5 @@ async def validate_keys(request: Request):
             "available": scraper_ok,
             "source": "user" if user_scraperapi_key else ("server" if settings.scraperapi_key else "none"),
             "error": None if scraper_ok else scraper_error,
-        },
-        "ai": {
-            "available": gemini_ok,
-            "source": "user" if user_gemini_key else ("server" if settings.gemini_api_key else "none"),
-            "error": gemini_error,
-        },
-        "alternative_ai": {
-            "available": openrouter_ok,
-            "source": "user" if user_openrouter_key else ("server" if settings.openrouter_api_key else "none"),
-            "error": None if openrouter_ok else openrouter_error,
         },
     }

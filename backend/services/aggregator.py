@@ -50,8 +50,6 @@ async def _run_one(
 
 async def run_search(
     query: str,
-    user_gemini_key: str | None = None,
-    user_openrouter_key: str | None = None,
     user_scraperapi_key: str | None = None,
 ) -> SearchResponse:
     sem = asyncio.Semaphore(settings.concurrent_scrape_limit)
@@ -64,12 +62,7 @@ async def run_search(
     fresh = sum(1 for r in results if r.status == ScrapeStatus.FRESH)
     logger.info("search '%s': %d/%d fresh (%dms)", query[:50], fresh, len(results), elapsed)
 
-    recommendation, ai_error = await generate_recommendation(
-        query,
-        results,
-        user_gemini_key=user_gemini_key,
-        user_openrouter_key=user_openrouter_key,
-    )
+    recommendation, ai_error = generate_recommendation(query, results)
     return SearchResponse(
         query=query,
         results=results,

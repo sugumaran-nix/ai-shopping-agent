@@ -5,8 +5,8 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export const metadata: Metadata = {
   title: { default: 'AI Shopping Agent', template: '%s — AI Shopping Agent' },
-  description: 'Compare real prices across Amazon, Flipkart, Meesho & Myntra. AI-powered buying recommendations grounded in live data.',
-  keywords: ['price comparison', 'shopping', 'Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AI'],
+  description: 'Compare real prices across Amazon, Flipkart, Meesho & Myntra with transparent weighted buying recommendations.',
+  keywords: ['price comparison', 'shopping', 'Amazon', 'Flipkart', 'Meesho', 'Myntra', 'product ranking'],
   icons: {
     icon: '/icon.svg',
     shortcut: '/icon.svg',
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'AI Shopping Agent',
-    description: 'Real-time product comparison across 5 marketplaces with AI recommendations.',
+    description: 'Real-time product comparison across Amazon, Flipkart, Meesho, and Myntra with transparent product ranking.',
     type: 'website',
   },
   robots: { index: true, follow: true },

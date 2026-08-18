@@ -13,8 +13,6 @@ class Settings(BaseSettings):
 
     # ── Required ───────────────────────────────────────────────────────────
     scraperapi_key: str = ""
-    gemini_api_key: str = ""
-    openrouter_api_key: str = ""
 
     # ── Optional ───────────────────────────────────────────────────────────
 
@@ -35,13 +33,6 @@ class Settings(BaseSettings):
     max_retries: int = 1          # reduced — retrying slow JS scrapers wastes time
     concurrent_scrape_limit: int = 4
 
-    # ── AI ─────────────────────────────────────────────────────────────────
-    # Use the live-tested alias with broad availability for current user keys.
-    gemini_model: str = "gemini-flash-latest"
-    openrouter_model: str = "openrouter/free"
-    ai_max_products_per_source: int = 10
-    ai_request_timeout_seconds: int = 30
-
     # ── Observability ──────────────────────────────────────────────────────
     log_level: str = "INFO"
     environment: str = "development"
@@ -55,13 +46,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def warn_on_startup(self) -> "Settings":
-        missing = [k for k, v in [
-            ("SCRAPERAPI_KEY", self.scraperapi_key),
-            ("GEMINI_API_KEY", self.gemini_api_key),
-        ] if not v]
-        if missing:
+        if not self.scraperapi_key:
             logging.getLogger("config").warning(
-                "Missing env vars: %s — some features will be unavailable.", ", ".join(missing)
+                "Missing env var: SCRAPERAPI_KEY — live marketplace results will be unavailable."
             )
         if self.environment == "production" and self.allowed_origins == "http://localhost:3000":
             logging.getLogger("config").error(
@@ -74,12 +61,6 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
-
-    @property
-
-    @property
-    def gemini_enabled(self) -> bool:
-        return bool(self.gemini_api_key)
 
     @property
     def is_production(self) -> bool:

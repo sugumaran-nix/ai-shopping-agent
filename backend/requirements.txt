@@ -21,9 +21,6 @@ tenacity==9.0.0
 # ── Cache ──────────────────────────────────────────────────────────────────────
 diskcache==5.6.3
 
-# ── AI (unused SDK kept for reference, actual calls use httpx directly) ────────
-google-generativeai==0.8.3
-
 # ── Observability ──────────────────────────────────────────────────────────────
 python-json-logger==2.0.7
 

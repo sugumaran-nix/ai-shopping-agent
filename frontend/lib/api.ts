@@ -134,15 +134,11 @@ export const SOURCE_META: Record<Source, {
 
 export interface KeyStatus {
   scraping: { available: boolean; source: string; error: string | null }
-  ai: { available: boolean; source: string; error: string | null }
-  alternative_ai: { available: boolean; source: string; error: string | null }
 }
 
-export async function validateKeys(scraperKey?: string, geminiKey?: string, openrouterKey?: string): Promise<KeyStatus> {
+export async function validateKeys(scraperKey?: string): Promise<KeyStatus> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
-  if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-  if (openrouterKey) headers['X-OpenRouter-Key'] = openrouterKey
 
   try {
     const res = await fetch(`${BASE_URL}/api/v1/validate-keys`, {
@@ -160,15 +156,11 @@ export async function validateKeys(scraperKey?: string, geminiKey?: string, open
 export async function searchWithKeys(
   query: string,
   scraperKey?: string,
-  geminiKey?: string,
-  openrouterKey?: string,
   signal?: AbortSignal,
 ): Promise<SearchResponse> {
   const url = `${BASE_URL}/api/v1/search?q=${encodeURIComponent(query.trim())}`
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (scraperKey) headers['X-ScraperAPI-Key'] = scraperKey
-  if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-  if (openrouterKey) headers['X-OpenRouter-Key'] = openrouterKey
 
   let res: Response
   try {
@@ -193,21 +185,18 @@ export async function searchWithKeys(
   return res.json() as Promise<SearchResponse>
 }
 
-export function friendlyUserError(error?: string | null, kind: 'connection' | 'ai' | 'setup' = 'connection'): string {
+export function friendlyUserError(error?: string | null, kind: 'connection' | 'setup' = 'connection'): string {
   if (kind === 'setup') {
     if (/timeout|timed out/.test((error || '').toLowerCase())) return 'Key verification took too long. Try again in a moment.'
     if (/network|connect|server|reach/.test((error || '').toLowerCase())) return 'The verification service could not be reached. Try again later.'
     return 'The connection could not be verified. Check your key and try again.'
   }
-  if (!error) return kind === 'ai' ? 'AI recommendations are temporarily unavailable.' : 'This service is temporarily unavailable. Try again later.'
+  if (!error) return 'This service is temporarily unavailable. Try again later.'
   const normalized = error.toLowerCase()
-  if (/scraperapi|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) {
-    return kind === 'ai' ? 'The AI recommendation is temporarily unavailable. Your price results are still available.' : 'Live marketplace access was rejected. Try again later.'
-  }
-  if (/gemini|generat|model|ai/.test(normalized)) return 'The AI recommendation is temporarily unavailable. Your price results are still available.'
+  if (/scraperapi|amazon|flipkart|meesho|myntra|https?:\/\/|http \d{3}|403|forbidden|quota|unauthori/.test(normalized)) return 'Live marketplace access was rejected. Try again later.'
   if (/timeout|timed out/.test(normalized)) return 'The request took too long to respond. Try again in a moment.'
   if (/network|connect|server/.test(normalized)) return 'The service could not be reached right now. Try again later.'
-  return kind === 'ai' ? 'The AI recommendation is temporarily unavailable. Your price results are still available.' : 'This service did not return a usable response. Try again later.'
+  return 'This service did not return a usable response. Try again later.'
 }
 
 export function friendlySourceError(status: ScrapeStatus, error?: string | null): string {

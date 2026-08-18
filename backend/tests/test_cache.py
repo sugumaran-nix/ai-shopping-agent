@@ -11,7 +11,6 @@ def cache_mod(tmp_path, monkeypatch):
     monkeypatch.setenv("CACHE_TTL_SECONDS", "10")
     monkeypatch.setenv("STALE_SERVE_TTL_SECONDS", "60")
     monkeypatch.setenv("SCRAPERAPI_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
 
     import importlib
     import cache
