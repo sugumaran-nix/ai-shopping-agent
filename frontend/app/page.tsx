@@ -142,25 +142,32 @@ function getTopPickCandidates(data: SearchResponse): Product[] {
 
 
 export default function HomePage() {
-  const [appState, setAppState] = useState<AppState>({ mode: 'checking' })
+  // Render the usable shell immediately; backend validation is progressive and must not block first paint.
+  const [appState, setAppState] = useState<AppState>({ mode: 'ready' })
   const [query, setQuery] = useState('')
   const [phase, setPhase] = useState<SearchPhase>({ name: 'idle' })
   const [showKeySetup, setShowKeySetup] = useState(false)
   const searchAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    let active = true
     const storedKeys = getStoredKeys()
     if (hasKeys()) {
       setAppState({ mode: 'user-keys-set' })
-      return
+      return () => { active = false }
     }
     validateKeys(storedKeys)
       .then(status => {
+        if (!active) return
         if (status.scraping.available) setAppState({ mode: 'ready' })
         else if (hasKeys()) setAppState({ mode: 'needs-keys', error: 'Your saved provider keys could not be verified. Please update them.' })
         else setAppState({ mode: 'needs-keys' })
       })
-      .catch(() => setAppState({ mode: 'needs-keys', error: 'Cannot reach the server. Check your connection.' }))
+      .catch(() => {
+        // Keep the search shell usable when the optional verification service is offline.
+        if (active) setAppState(current => current.mode === 'user-keys-set' ? current : { mode: 'ready' })
+      })
+    return () => { active = false }
   }, [])
 
   const getKeys = (): ProviderKeys => getStoredKeys()
