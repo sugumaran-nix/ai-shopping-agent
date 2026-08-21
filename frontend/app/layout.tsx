@@ -39,14 +39,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
 
         <header className="sticky top-0 z-20 border-b border-[#dfe1d8]/90 bg-[#f5f4ef]/90 backdrop-blur-xl">
-          <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-5 sm:px-8">
+          <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:h-[72px] sm:px-8">
             <Link href="/" className="group flex items-center gap-3" aria-label="AI Shopping Agent home">
               <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] bg-[#171a16] shadow-[0_8px_20px_rgba(23,26,22,0.14)]">
                 <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg opacity-95 transition-transform duration-300 group-hover:scale-110" />
               </span>
-              <span className="hidden sm:block">
-                <span className="block text-[13px] font-bold tracking-[-0.02em] text-[#171a16]">AI Shopping Agent</span>
-                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a8f84]">Better buys, less browsing</span>
+              <span className="block min-w-0">
+                <span className="block truncate text-[12px] font-bold tracking-[-0.02em] text-[#171a16] sm:text-[13px]">AI Shopping Agent</span>
+                <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a8f84] sm:block">Better buys, less browsing</span>
               </span>
             </Link>
 
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 href="https://github.com/sugumaran-nix/ai-shopping-agent"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="focus-ring flex h-8 w-8 items-center justify-center text-[#73786f] transition hover:-translate-y-0.5 hover:text-[#35530a] dark:text-[#c9f36b] dark:hover:text-[#d9f6a4]"
+                className="focus-ring flex h-11 w-11 items-center justify-center rounded-full text-[#73786f] transition hover:-translate-y-0.5 hover:bg-[#eff7d9] hover:text-[#35530a] dark:text-[#c9f36b] dark:hover:text-[#d9f6a4]"
                 title="View source on GitHub"
                 aria-label="View source on GitHub"
               >
@@ -67,13 +67,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
 
         <main id="main" className="paper-grid flex-1">
-          <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-12 lg:py-16">
+          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 sm:py-12 lg:py-16">
             {children}
           </div>
         </main>
 
         <footer className="border-t border-[#dfe1d8] bg-[#f5f4ef]">
-          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-[11px] font-medium text-[#858a81] sm:px-8">
+          <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-3 px-4 py-5 text-[11px] font-medium text-[#858a81] sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-6">
             <p className="max-w-xl leading-relaxed">Prices are gathered from public listings. Always verify the final price, availability, and delivery details before buying.</p>
             <p className="uppercase tracking-[0.16em]">Live listings · grounded picks</p>
           </div>
