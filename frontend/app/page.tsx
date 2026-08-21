@@ -208,7 +208,6 @@ export default function HomePage() {
   const handleChangeKeys = useCallback(() => setShowKeySetup(true), [])
   const topPickCandidates = useMemo(() => phase.name === 'done' ? getTopPickCandidates(phase.data) : [], [phase])
   const bestProduct: Product | undefined = useMemo(() => phase.name === 'done' ? rankTopPicks(topPickCandidates, phase.data.query, 'overall')[0] : undefined, [phase, topPickCandidates])
-  if (appState.mode === 'checking') return <div className="flex min-h-[55vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#171a16] border-r-transparent" /><p className="eyebrow text-[#8a8f84]">Preparing your search</p></div></div>
 
   if (appState.mode === 'needs-keys' && !showKeySetup) return <div className="animate-float-in space-y-5 pb-8"><section className="mx-auto max-w-5xl text-center"><div className="mb-2 flex items-center justify-center gap-3"><span className="rounded-full bg-[#c9f36b] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#35530a]">One-time setup</span></div><h1 className="font-display text-[clamp(3rem,6vw,6rem)] leading-[0.84] text-[#171a16]">Connect your <span className="italic text-[#748e35]">search.</span></h1><p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#73786f] sm:text-base">Compare live marketplace listings and get grounded buying guidance.</p></section><ApiKeySetup onKeysReady={handleKeysReady} needsProvider={true} initialError={appState.error} /></div>
 
